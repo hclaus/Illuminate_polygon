@@ -222,6 +222,7 @@ export const LoadedLampSchema = z.object({
   orientation: z.number(),
   scaling_factor: z.number(),
   enabled: z.boolean(),
+  visible: z.boolean().optional().default(true),
   has_ies_file: z.boolean().optional().default(false),
   has_spectrum_file: z.boolean().optional().default(false),
 }).passthrough();
@@ -231,6 +232,7 @@ export const LoadedZoneSchema = z.object({
   name: z.string().nullable().optional(),
   type: z.string(),
   enabled: z.boolean(),
+  visible: z.boolean().optional().default(true),
   is_standard: z.boolean(),
   num_x: z.number().nullish(),
   num_y: z.number().nullish(),

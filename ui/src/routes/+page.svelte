@@ -243,53 +243,33 @@
 	// Layer visibility state (lifted from DisplayControlOverlay)
 	let lampsLayerVisible = $state(true);
 	let zonesLayerVisible = $state(true);
-	let lampVisibility = $state<Record<string, boolean>>({});
-	let zoneVisibility = $state<Record<string, boolean>>({});
-
-	// Initialize visibility for new items (default to visible)
-	$effect(() => {
-		const newLampVis = { ...lampVisibility };
-		let changed = false;
-		for (const lamp of $lamps) {
-			if (!(lamp.id in newLampVis)) {
-				newLampVis[lamp.id] = true;
-				changed = true;
-			}
-		}
-		if (changed) lampVisibility = newLampVis;
-	});
-
-	$effect(() => {
-		const newZoneVis = { ...zoneVisibility };
-		let changed = false;
-		for (const zone of $zones) {
-			if (!(zone.id in newZoneVis)) {
-				newZoneVis[zone.id] = true;
-				changed = true;
-			}
-		}
-		if (changed) zoneVisibility = newZoneVis;
-	});
+	// (Local visibility records removed; visibility is now synced via project store)
 
 	// Compute visible IDs based on layer and individual visibility
 	const visibleLampIds = $derived(
 		lampsLayerVisible
-			? $lamps.filter(l => lampVisibility[l.id] !== false).map(l => l.id)
+			? $lamps.filter(l => l.visible !== false).map(l => l.id)
 			: []
 	);
 
 	const visibleZoneIds = $derived(
 		zonesLayerVisible
-			? $zones.filter(z => zoneVisibility[z.id] !== false).map(z => z.id)
+			? $zones.filter(z => z.visible !== false).map(z => z.id)
 			: []
 	);
 
 	function toggleLampVisibility(lampId: string) {
-		lampVisibility = { ...lampVisibility, [lampId]: !lampVisibility[lampId] };
+		const l = $lamps.find(item => item.id === lampId);
+		if (l) {
+			project.updateLamp(lampId, { visible: l.visible === false });
+		}
 	}
 
 	function toggleZoneVisibility(zoneId: string) {
-		zoneVisibility = { ...zoneVisibility, [zoneId]: !zoneVisibility[zoneId] };
+		const z = $zones.find(item => item.id === zoneId);
+		if (z) {
+			project.updateZone(zoneId, { visible: z.visible === false });
+		}
 	}
 
 	function closeAllEditors() {
@@ -514,6 +494,7 @@
 
 	// --- Beforeunload: warn about unsaved project changes ---
 	let lastSavedSnapshot: string | null = $state(null);
+	let currentFileHandle = $state<FileSystemFileHandle | null>(null);
 
 	function markProjectClean() {
 		// Snapshot project state excluding volatile fields
@@ -609,6 +590,7 @@
 					if (validPreset) {
 						// Start fresh so the preview shows only this lamp
 						project.reset({ skipBackendSync: true });
+						currentFileHandle = null;
 						await project.initSession();
 
 						// Create and add the preview lamp with a temporary position
@@ -675,6 +657,63 @@
 	}
 
 	async function saveToFile() {
+		if (currentFileHandle) {
+			try {
+				const guvContent = await saveSession();
+				const writable = await currentFileHandle.createWritable();
+				await writable.write(guvContent);
+				await writable.close();
+				markProjectClean();
+			} catch (e) {
+				console.error('Direct save failed, falling back to Save As:', e);
+				await saveAsToFile();
+			}
+		} else {
+			await saveAsToFile();
+		}
+	}
+
+	async function saveAsToFile() {
+		const showSaveFilePicker = (window as any).showSaveFilePicker;
+		if (showSaveFilePicker) {
+			try {
+				const handle = await showSaveFilePicker({
+					suggestedName: `${$project.name}.guv`,
+					types: [{
+						description: 'GUV Files',
+						accept: {
+							'application/json': ['.guv']
+						}
+					}]
+				});
+				currentFileHandle = handle;
+				const newName = handle.name.replace(/\.guv$/i, '');
+				project.setName(newName);
+
+				const guvContent = await saveSession();
+				const writable = await handle.createWritable();
+				await writable.write(guvContent);
+				await writable.close();
+				markProjectClean();
+			} catch (e) {
+				if (e instanceof Error && e.name !== 'AbortError') {
+					console.error('Save As failed:', e);
+					alertDialog = { title: 'Save As Failed', message: 'Failed to save file.' };
+				}
+			}
+		} else {
+			const currentName = $project.name;
+			const newName = prompt('Enter a new name for the project:', currentName);
+			if (newName === null) return; // cancelled
+			const sanitized = newName.trim().replace(/[\/\\:*?"<>|]/g, '').trim();
+			if (sanitized) {
+				project.setName(sanitized);
+			}
+			await saveToFileLegacy();
+		}
+	}
+
+	async function saveToFileLegacy() {
 		try {
 			// Use Project.save() via the API to get proper .guv format
 			const guvContent = await saveSession();
@@ -693,10 +732,56 @@
 		}
 	}
 
+	async function triggerLoad() {
+		const showOpenFilePicker = (window as any).showOpenFilePicker;
+		if (showOpenFilePicker) {
+			try {
+				const [handle] = await showOpenFilePicker({
+					types: [{
+						description: 'GUV Files',
+						accept: {
+							'application/json': ['.guv']
+						}
+					}],
+					multiple: false
+				});
+				currentFileHandle = handle;
+				const file = await handle.getFile();
+				const text = await file.text();
+				const projectName = file.name.replace(/\.guv$/i, '');
+				isLoadingFile = true;
+				try {
+					JSON.parse(text);
+					const response = await loadSession(text);
+					if (response.success) {
+						project.loadFromApiResponse(response, projectName);
+					} else {
+						alertDialog = { title: 'Load Failed', message: 'Failed to load file: ' + response.message };
+					}
+				} catch (e) {
+					console.error('Load failed:', e);
+					alertDialog = { title: 'Load Failed', message: 'Failed to load file: invalid format or server error' };
+				} finally {
+					isLoadingFile = false;
+					markProjectClean();
+				}
+			} catch (e) {
+				if (e instanceof Error && e.name !== 'AbortError') {
+					console.error('OpenFilePicker failed:', e);
+					document.getElementById('load-file')?.click();
+				}
+			}
+		} else {
+			document.getElementById('load-file')?.click();
+		}
+	}
+
 	async function loadFromFile(event: Event) {
 		const input = event.target as HTMLInputElement;
 		const file = input.files?.[0];
 		if (!file) return;
+
+		currentFileHandle = null;
 
 		// Extract project name from filename (remove .guv extension)
 		const projectName = file.name.replace(/\.guv$/i, '');
@@ -810,7 +895,8 @@
 		onRenameProject={(name) => project.setName(name)}
 		onNewProject={startFresh}
 		onSave={saveToFile}
-		onLoad={() => document.getElementById('load-file')?.click()}
+		onSaveAs={saveAsToFile}
+		onLoad={triggerLoad}
 		onAddLamp={addNewLamp}
 		onAddZone={addNewZone}
 		onShowReflectanceSettings={() => openOrRestore('Reflectance Settings', () => showReflectanceSettings = true)}
@@ -908,7 +994,7 @@
 					{:else}
 						<ul class="item-list">
 							{#each $lamps as lamp (lamp.id)}
-								{@const lampEyeActive = lampsLayerVisible && lampVisibility[lamp.id] !== false}
+								{@const lampEyeActive = lampsLayerVisible && lamp.visible !== false}
 								<li class="item-list-item" class:calc-disabled={lamp.enabled === false} data-lamp-id={lamp.id}>
 									<div
 										class="item-list-row clickable"
@@ -1084,7 +1170,7 @@
 							<span class="section-label">Standard</span>
 							<ul class="item-list">
 								{#each standardZonesList as zone (zone.id)}
-									{@const zoneEyeActive = zonesLayerVisible && zoneVisibility[zone.id] !== false}
+									{@const zoneEyeActive = zonesLayerVisible && zone.visible !== false}
 									<li class="item-list-item standard-zone" class:calc-disabled={zone.enabled === false} data-zone-id={zone.id}>
 										<div
 											class="item-list-row clickable"
@@ -1175,7 +1261,7 @@
 							{/if}
 							<ul class="item-list">
 								{#each customZonesList as zone (zone.id)}
-									{@const zoneEyeActive = zonesLayerVisible && zoneVisibility[zone.id] !== false}
+									{@const zoneEyeActive = zonesLayerVisible && zone.visible !== false}
 									<li class="item-list-item" class:calc-disabled={zone.enabled === false} data-zone-id={zone.id}>
 										<div
 											class="item-list-row clickable"
@@ -1463,7 +1549,7 @@
 		message="Start a new project? This will clear all current lamps, zones, and results."
 		confirmLabel="New Project"
 		variant="success"
-		onConfirm={() => { showNewProjectConfirm = false; project.reset(); markProjectClean(); }}
+		onConfirm={() => { showNewProjectConfirm = false; project.reset(); currentFileHandle = null; markProjectClean(); }}
 		onCancel={() => showNewProjectConfirm = false}
 	/>
 {/if}

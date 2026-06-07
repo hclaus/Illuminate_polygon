@@ -74,6 +74,7 @@ export interface LampInstance {
   lamp_type: LampType;
   preset_id?: string; // e.g., 'beacon', 'ushio_b1', or 'custom'
   name?: string;
+  visible?: boolean;
   x: number;
   y: number;
   z: number;
@@ -134,6 +135,7 @@ export interface CalcZone {
   name?: string;
   type: 'plane' | 'volume' | 'point';
   enabled?: boolean;
+  visible?: boolean;
   isStandard?: boolean;  // True for the 3 standard zones (WholeRoomFluence, EyeLimits, SkinLimits)
 
   // Value display settings
@@ -558,6 +560,7 @@ export function defaultLamp(room: RoomConfig, existingLamps: LampInstance[] = []
     aimz: placement.aimz,
     scaling_factor: 1.0,
     enabled: true,
+    visible: true,
     has_ies_file: false,
     has_spectrum_file: false,
     show_label: room.showLampLabels,
@@ -585,6 +588,7 @@ export function defaultZone(room: RoomConfig, zoneCount: number, overrides?: Zon
     name: `CalcZone${zoneCount + 1}`,
     type: zoneType,
     enabled: true,
+    visible: true,
     dose: overrides?.dose ?? false,
     hours: overrides?.hours ?? 8,
     offset: overrides?.offset ?? true,

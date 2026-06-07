@@ -9,6 +9,7 @@
 	import AlertDialog from './AlertDialog.svelte';
 	import Modal from './Modal.svelte';
 	import { enterToggle } from '$lib/actions/enterToggle';
+	import ContourPlot from './ContourPlot.svelte';
 
 	interface Props {
 		zone: CalcZone;
@@ -29,7 +30,7 @@
 	let alertDialog = $state<{ title: string; message: string } | null>(null);
 
 	// Display mode toggle
-	let displayMode = $state<'heatmap' | 'numeric'>('heatmap');
+	let displayMode = $state<'heatmap' | 'numeric' | 'contour'>('heatmap');
 
 	// Axes, ticks, and tick labels toggles
 	let showAxes = $state(true);
@@ -44,8 +45,8 @@
 	let displayPrecision = $state(2);
 
 	// Canvas refs
-	let canvas: HTMLCanvasElement;
-	let numericCanvas: HTMLCanvasElement;
+	let canvas = $state<HTMLCanvasElement>();
+	let numericCanvas = $state<HTMLCanvasElement>();
 
 	async function exportCSV() {
 		exporting = true;
@@ -764,142 +765,156 @@
 	});
 </script>
 
-<Modal title={zoneName} onClose={onclose} maxWidth={isSafetyZone ? "min(820px, 95vw)" : "min(750px, 95vw)"} maxHeight="95vh" titleFontSize="1rem" {dockId}>
+<Modal title={zoneName} onClose={onclose} maxWidth={displayMode === 'contour' ? "min(1100px, 95vw)" : (isSafetyZone ? "min(820px, 95vw)" : "min(750px, 95vw)")} maxHeight="95vh" titleFontSize="1rem" {dockId}>
 	{#snippet headerExtra()}
 		<span class="plane-badge">2D Plane @ {bounds.fixedLabel}={formatTick(bounds.fixed)} {units}</span>
 	{/snippet}
 	{#snippet body()}
-		<div class="modal-body">
-			<div class="plot-wrapper">
-				<!-- Y axis label (rotated) -->
-				<div class="y-label" class:hidden-keep-layout={!showAxes} style="height: {displayDims.height}px;">{bounds.vLabel} ({units})</div>
+		{#if displayMode === 'contour'}
+			<ContourPlot
+				{values}
+				{zone}
+				{room}
+				{valueFactor}
+				{units}
+				{valueUnits}
+				{displayDims}
+				{bounds}
+				{shouldFlipV}
+			/>
+		{:else}
+			<div class="modal-body">
+				<div class="plot-wrapper">
+					<!-- Y axis label (rotated) -->
+					<div class="y-label" class:hidden-keep-layout={!showAxes} style="height: {displayDims.height}px;">{bounds.vLabel} ({units})</div>
 
-				<!-- Y axis ticks -->
-				<div class="y-axis" style="height: {displayDims.height}px;">
-					{#each vTicks as tick}
-						<div class="y-tick" style="bottom: {tickPercent(tick, bounds.v1, bounds.v2)}%">
-							<span class="tick-label" class:hidden-keep-layout={!showTickLabels}>{formatTick(tick)}</span>
-							<span class="tick-mark" class:hidden-keep-layout={!showTickMarks}></span>
-						</div>
-					{/each}
-				</div>
-
-				<!-- Center column: canvas + x-axis -->
-				<div class="center-column">
-					<div class="canvas-container" style="width: {displayDims.width}px; height: {displayDims.height}px;">
-						<canvas bind:this={canvas}></canvas>
-						<canvas bind:this={numericCanvas} class="numeric-overlay"></canvas>
-						{#if displayMode === 'numeric' && isGridTooDense}
-							<div class="dense-grid-message">
-								Grid too dense ({numU}&times;{numV}) to display numeric values
-							</div>
-						{/if}
-						{#if showLampLabels && projectedLamps.length > 0}
-							<svg class="lamp-overlay" viewBox="0 0 {displayDims.width} {displayDims.height}">
-								{#each labelPlacements as placement}
-									<!-- Leader line -->
-									{#if placement.needsLeader}
-										<line
-											x1={placement.lamp.px}
-											y1={placement.lamp.py}
-											x2={placement.x + placement.width / 2}
-											y2={placement.y + placement.height}
-											stroke="rgba(255,255,255,0.7)"
-											stroke-width="1"
-											stroke-dasharray="4 3"
-										/>
-									{/if}
-									<!-- Marker circle -->
-									<circle
-										cx={placement.lamp.px}
-										cy={placement.lamp.py}
-										r="5"
-										fill="white"
-										stroke="#333"
-										stroke-width="1.5"
-									/>
-									<!-- Label background -->
-									<rect
-										x={placement.x}
-										y={placement.y}
-										width={placement.width}
-										height={placement.height}
-										rx="4"
-										fill="rgba(0,0,0,0.7)"
-									/>
-									<!-- Label text -->
-									<text
-										x={placement.x + placement.width / 2}
-										y={placement.y + placement.height / 2}
-										text-anchor="middle"
-										dominant-baseline="central"
-										fill="white"
-										font-size="11"
-										font-family="var(--font-mono, monospace)"
-									>{placement.lamp.name}</text>
-								{/each}
-							</svg>
-						{/if}
-					</div>
-
-					<div class="x-axis" style="width: {displayDims.width}px;">
-						{#each uTicks as tick}
-							<div class="x-tick" style="left: {tickPercent(tick, bounds.u1, bounds.u2)}%">
-								<span class="tick-mark" class:hidden-keep-layout={!showTickMarks}></span>
+					<!-- Y axis ticks -->
+					<div class="y-axis" style="height: {displayDims.height}px;">
+						{#each vTicks as tick}
+							<div class="y-tick" style="bottom: {tickPercent(tick, bounds.v1, bounds.v2)}%">
 								<span class="tick-label" class:hidden-keep-layout={!showTickLabels}>{formatTick(tick)}</span>
+								<span class="tick-mark" class:hidden-keep-layout={!showTickMarks}></span>
 							</div>
 						{/each}
 					</div>
-					<div class="x-label" class:hidden-keep-layout={!showAxes}>{bounds.uLabel} ({units})</div>
-				</div>
 
-				<!-- Color legend -->
-				<div class="legend-column">
-					<div class="legend-content" style="height: {displayDims.height}px;">
-						<div class="legend-bar" style="background: linear-gradient(to top, {legendGradient})"></div>
-						<div class="legend-labels">
-							<span class="legend-label-top">{formatValue(displayStats.max)}</span>
-							<span class="legend-label-mid">{formatValue((displayStats.min + displayStats.max) / 2)}</span>
-							<span class="legend-label-bot">{formatValue(displayStats.min)}</span>
+					<!-- Center column: canvas + x-axis -->
+					<div class="center-column">
+						<div class="canvas-container" style="width: {displayDims.width}px; height: {displayDims.height}px;">
+							<canvas bind:this={canvas}></canvas>
+							<canvas bind:this={numericCanvas} class="numeric-overlay"></canvas>
+							{#if displayMode === 'numeric' && isGridTooDense}
+								<div class="dense-grid-message">
+									Grid too dense ({numU}&times;{numV}) to display numeric values
+								</div>
+							{/if}
+							{#if showLampLabels && projectedLamps.length > 0}
+								<svg class="lamp-overlay" viewBox="0 0 {displayDims.width} {displayDims.height}">
+									{#each labelPlacements as placement}
+										<!-- Leader line -->
+										{#if placement.needsLeader}
+											<line
+												x1={placement.lamp.px}
+												y1={placement.lamp.py}
+												x2={placement.x + placement.width / 2}
+												y2={placement.y + placement.height}
+												stroke="rgba(255,255,255,0.7)"
+												stroke-width="1"
+												stroke-dasharray="4 3"
+											/>
+										{/if}
+										<!-- Marker circle -->
+										<circle
+											cx={placement.lamp.px}
+											cy={placement.lamp.py}
+											r="5"
+											fill="white"
+											stroke="#333"
+											stroke-width="1.5"
+										/>
+										<!-- Label background -->
+										<rect
+											x={placement.x}
+											y={placement.y}
+											width={placement.width}
+											height={placement.height}
+											rx="4"
+											fill="rgba(0,0,0,0.7)"
+										/>
+										<!-- Label text -->
+										<text
+											x={placement.x + placement.width / 2}
+											y={placement.y + placement.height / 2}
+											text-anchor="middle"
+											dominant-baseline="central"
+											fill="white"
+											font-size="11"
+											font-family="var(--font-mono, monospace)"
+										>{placement.lamp.name}</text>
+									{/each}
+								</svg>
+							{/if}
 						</div>
-					</div>
-					<div class="legend-unit">{valueUnits}</div>
-				</div>
 
-				<!-- TLV Safety Limit Scale -->
-				{#if isSafetyZone && tlvScaleData}
-					<div class="tlv-column">
-						<div class="tlv-content" style="height: {displayDims.height}px;">
-							<div class="tlv-bar">
-								<!-- +/-10% band -->
-								<div
-									class="tlv-band"
-									style="bottom: {tlvScaleData.bandLow}%; height: {tlvScaleData.bandHigh - tlvScaleData.bandLow}%;"
-								></div>
-								<!-- Max value indicator -->
-								{#if tlvScaleData.exceedsLimit}
-									<div class="tlv-indicator tlv-indicator-fail" style="bottom: 100%;">
-										<span class="tlv-indicator-label tlv-fail">{formatValue(tlvScaleData.maxVal)}</span>
-									</div>
-								{:else}
-									<div class="tlv-indicator tlv-indicator-pass" style="bottom: {tlvScaleData.maxPercent}%;">
-										<span class="tlv-indicator-label">{formatValue(tlvScaleData.maxVal)}</span>
-									</div>
-								{/if}
-							</div>
-							<div class="tlv-labels">
-								<span class="tlv-label-top">{formatValue(tlvLimit)}</span>
-								<span class="tlv-label-bot">0</span>
-							</div>
+						<div class="x-axis" style="width: {displayDims.width}px;">
+							{#each uTicks as tick}
+								<div class="x-tick" style="left: {tickPercent(tick, bounds.u1, bounds.u2)}%">
+									<span class="tick-mark" class:hidden-keep-layout={!showTickMarks}></span>
+									<span class="tick-label" class:hidden-keep-layout={!showTickLabels}>{formatTick(tick)}</span>
+								</div>
+							{/each}
 						</div>
-						<div class="tlv-unit">TLV</div>
-						<div class="tlv-status" class:tlv-pass={tlvScaleData.isCompliant} class:tlv-fail-status={tlvScaleData.exceedsLimit}>
-							{tlvScaleData.isCompliant ? 'PASS' : 'FAIL'}
-						</div>
+						<div class="x-label" class:hidden-keep-layout={!showAxes}>{bounds.uLabel} ({units})</div>
 					</div>
-				{/if}
+
+					<!-- Color legend -->
+					<div class="legend-column">
+						<div class="legend-content" style="height: {displayDims.height}px;">
+							<div class="legend-bar" style="background: linear-gradient(to top, {legendGradient})"></div>
+							<div class="legend-labels">
+								<span class="legend-label-top">{formatValue(displayStats.max)}</span>
+								<span class="legend-label-mid">{formatValue((displayStats.min + displayStats.max) / 2)}</span>
+								<span class="legend-label-bot">{formatValue(displayStats.min)}</span>
+							</div>
+						</div>
+						<div class="legend-unit">{valueUnits}</div>
+					</div>
+
+					<!-- TLV Safety Limit Scale -->
+					{#if isSafetyZone && tlvScaleData}
+						<div class="tlv-column">
+							<div class="tlv-content" style="height: {displayDims.height}px;">
+								<div class="tlv-bar">
+									<!-- +/-10% band -->
+									<div
+										class="tlv-band"
+										style="bottom: {tlvScaleData.bandLow}%; height: {tlvScaleData.bandHigh - tlvScaleData.bandLow}%;"
+									></div>
+									<!-- Max value indicator -->
+									{#if tlvScaleData.exceedsLimit}
+										<div class="tlv-indicator tlv-indicator-fail" style="bottom: 100%;">
+											<span class="tlv-indicator-label tlv-fail">{formatValue(tlvScaleData.maxVal)}</span>
+										</div>
+									{:else}
+										<div class="tlv-indicator tlv-indicator-pass" style="bottom: {tlvScaleData.maxPercent}%;">
+											<span class="tlv-indicator-label">{formatValue(tlvScaleData.maxVal)}</span>
+										</div>
+									{/if}
+								</div>
+								<div class="tlv-labels">
+									<span class="tlv-label-top">{formatValue(tlvLimit)}</span>
+									<span class="tlv-label-bot">0</span>
+								</div>
+							</div>
+							<div class="tlv-unit">TLV</div>
+							<div class="tlv-status" class:tlv-pass={tlvScaleData.isCompliant} class:tlv-fail-status={tlvScaleData.exceedsLimit}>
+								{tlvScaleData.isCompliant ? 'PASS' : 'FAIL'}
+							</div>
+						</div>
+					{/if}
+				</div>
 			</div>
-		</div>
+		{/if}
 	{/snippet}
 	{#snippet footer()}
 		<div class="modal-footer">
@@ -908,6 +923,7 @@
 					<select class="display-mode-select" bind:value={displayMode}>
 						<option value="heatmap">Heatmap</option>
 						<option value="numeric">Numeric</option>
+						<option value="contour">Contour</option>
 					</select>
 					{#if displayMode === 'numeric'}
 						<select class="display-mode-select" bind:value={numericFontSize}>
@@ -917,37 +933,43 @@
 							<option value="large">Font: Large</option>
 						</select>
 					{/if}
-					<label class="precision-label">
-						Decimals
-						<input type="number" class="precision-input" bind:value={displayPrecision} min={0} max={6} step={1} />
-					</label>
+					{#if displayMode !== 'contour'}
+						<label class="precision-label">
+							Decimals
+							<input type="number" class="precision-input" bind:value={displayPrecision} min={0} max={6} step={1} />
+						</label>
+					{/if}
 				</div>
-				<span class="show-prefix">Show:</span>
-				<label class="checkbox-label">
-					<input type="checkbox" bind:checked={showTickMarks} use:enterToggle />
-					<span>Tick marks</span>
-				</label>
-				<label class="checkbox-label">
-					<input type="checkbox" bind:checked={showTickLabels} use:enterToggle />
-					<span>Tick labels</span>
-				</label>
-				<label class="checkbox-label">
-					<input type="checkbox" bind:checked={showAxes} use:enterToggle />
-					<span>Axis labels</span>
-				</label>
-				<label class="checkbox-label">
-					<input type="checkbox" bind:checked={showLampLabels} use:enterToggle />
-					<span>Lamp positions</span>
-				</label>
+				{#if displayMode !== 'contour'}
+					<span class="show-prefix">Show:</span>
+					<label class="checkbox-label">
+						<input type="checkbox" bind:checked={showTickMarks} use:enterToggle />
+						<span>Tick marks</span>
+					</label>
+					<label class="checkbox-label">
+						<input type="checkbox" bind:checked={showTickLabels} use:enterToggle />
+						<span>Tick labels</span>
+					</label>
+					<label class="checkbox-label">
+						<input type="checkbox" bind:checked={showAxes} use:enterToggle />
+						<span>Axis labels</span>
+					</label>
+					<label class="checkbox-label">
+						<input type="checkbox" bind:checked={showLampLabels} use:enterToggle />
+						<span>Lamp positions</span>
+					</label>
+				{/if}
 			</div>
-			<div class="footer-buttons">
-				<button class="export-btn" onclick={savePlot} disabled={savingPlot}>
-					{savingPlot ? 'Saving...' : 'Save Plot'}
-				</button>
-				<button class="export-btn" onclick={exportCSV} disabled={exporting}>
-					{exporting ? 'Exporting...' : 'Export CSV'}
-				</button>
-			</div>
+			{#if displayMode !== 'contour'}
+				<div class="footer-buttons">
+					<button class="export-btn" onclick={savePlot} disabled={savingPlot}>
+						{savingPlot ? 'Saving...' : 'Save Plot'}
+					</button>
+					<button class="export-btn" onclick={exportCSV} disabled={exporting}>
+						{exporting ? 'Exporting...' : 'Export CSV'}
+					</button>
+				</div>
+			{/if}
 		</div>
 	{/snippet}
 </Modal>

@@ -9,6 +9,7 @@ describe('MenuBar', () => {
     onRenameProject: vi.fn(),
     onNewProject: vi.fn(),
     onSave: vi.fn(),
+    onSaveAs: vi.fn(),
     onLoad: vi.fn(),
     onAddLamp: vi.fn(),
     onAddZone: vi.fn(),

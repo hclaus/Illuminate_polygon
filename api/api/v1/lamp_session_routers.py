@@ -161,6 +161,8 @@ def update_session_lamp(lamp_id: str, updates: SessionLampUpdate, session: Initi
 
         if updates.enabled is not None:
             lamp.enabled = updates.enabled
+        if updates.visible is not None:
+            lamp.visible = updates.visible
 
         # Apply intensity units (must convert string to enum to preserve correct behavior)
         if updates.intensity_units is not None:

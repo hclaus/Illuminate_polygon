@@ -94,6 +94,8 @@ def update_session_zone(zone_id: str, updates: SessionZoneUpdate, session: Initi
             zone.name = updates.name
         if updates.enabled is not None:
             zone.enabled = updates.enabled
+        if updates.visible is not None:
+            zone.visible = updates.visible
         if updates.dose is not None:
             zone.dose = updates.dose
         if updates.hours is not None or updates.minutes is not None or updates.seconds is not None:
@@ -303,6 +305,7 @@ def get_session_zones(session: InitializedSessionDep):
             name=getattr(zone, 'name', None),
             type=zone_type,
             enabled=getattr(zone, 'enabled', True),
+            visible=getattr(zone, 'visible', True),
             is_standard=zone_id in (EYE_LIMITS, SKIN_LIMITS, WHOLE_ROOM_FLUENCE),
             num_x=getattr(zone, 'num_x', None),
             num_y=getattr(zone, 'num_y', None),

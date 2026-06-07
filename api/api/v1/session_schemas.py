@@ -48,6 +48,7 @@ class SessionLampInput(BaseModel):
     angle: float = 0.0
     scaling_factor: float = 1.0
     enabled: bool = True
+    visible: bool = True
 
 
 class SessionZoneInput(BaseModel):
@@ -56,6 +57,7 @@ class SessionZoneInput(BaseModel):
     name: Optional[str] = None
     type: Literal["plane", "volume", "point"] = "plane"
     enabled: bool = True
+    visible: bool = True
     isStandard: bool = False
     dose: bool = False
     hours: float = 8
@@ -164,6 +166,7 @@ class SessionLampUpdate(BaseModel):
     angle: Optional[float] = None
     scaling_factor: Optional[float] = None
     enabled: Optional[bool] = None
+    visible: Optional[bool] = None
     preset_id: Optional[str] = None
 
     # Advanced settings - scaling method
@@ -234,6 +237,7 @@ class SessionZoneUpdate(BaseModel):
     z_spacing: Optional[float] = Field(default=None, gt=0.005)
     # Display
     display_mode: Optional[str] = None
+    visible: Optional[bool] = None
 
 
 class SessionZoneUpdateResponse(BaseModel):
@@ -305,6 +309,7 @@ class SessionZoneState(BaseModel):
     normal_z: Optional[float] = None
     # Display
     display_mode: Optional[str] = None
+    visible: bool = True
 
 
 class GetZonesResponse(BaseModel):
@@ -617,6 +622,7 @@ class LoadedLamp(BaseModel):
     orientation: float = 0.0
     scaling_factor: float
     enabled: bool
+    visible: bool = True
     has_ies_file: bool = False
     has_spectrum_file: bool = False
 
@@ -676,6 +682,7 @@ class LoadedZone(BaseModel):
     normal_z: Optional[float] = None
     # Display
     display_mode: Optional[str] = None
+    visible: bool = True
 
 
 class SurfaceInfo(BaseModel):

@@ -567,6 +567,30 @@ def save_session(session: InitializedSessionDep):
         logger.info("Saving session Project to .guv format...")
         guv_content = session.project.save()
 
+        # Parse JSON and ensure actual enabled/visible properties of lamps and zones are saved
+        import json
+        try:
+            guv_data = json.loads(guv_content)
+            for room_id, room_dict in guv_data.get("data", {}).get("rooms", {}).items():
+                room = session.project.rooms.get(room_id)
+                if not room:
+                    continue
+                # Update lamps
+                for lamp_id, lamp_dict in room_dict.get("lamps", {}).items():
+                    lamp = room.lamps.get(lamp_id)
+                    if lamp:
+                        lamp_dict["enabled"] = getattr(lamp, "enabled", True)
+                        lamp_dict["visible"] = getattr(lamp, "visible", True)
+                # Update calc zones
+                for zone_id, zone_dict in room_dict.get("calc_zones", {}).items():
+                    zone = room.calc_zones.get(zone_id)
+                    if zone:
+                        zone_dict["enabled"] = getattr(zone, "enabled", True)
+                        zone_dict["visible"] = getattr(zone, "visible", True)
+            guv_content = json.dumps(guv_data, indent=4)
+        except Exception as json_err:
+            logger.warning(f"Failed to post-process save JSON: {json_err}")
+
         return Response(
             content=guv_content,
             media_type="application/json",
@@ -598,6 +622,39 @@ def load_session(request: dict, session: SessionCreateDep):
         # Project.load() accepts the raw file content (dict or JSON string)
         # and handles both project-format and legacy room-format files
         session.project = Project.load(request)
+
+        # Post-process to restore enabled and visible properties from the raw input dict
+        try:
+            import json
+            request_dict = request if isinstance(request, dict) else json.loads(request)
+            data_dict = request_dict.get("data", request_dict)
+
+            def apply_to_room(room_obj, room_data):
+                # Lamps
+                for lamp_id, lamp_dict in room_data.get("lamps", {}).items():
+                    lamp = room_obj.lamps.get(lamp_id)
+                    if lamp:
+                        lamp.enabled = lamp_dict.get("enabled", True)
+                        lamp.visible = lamp_dict.get("visible", True)
+                # Calc Zones
+                for zone_id, zone_dict in room_data.get("calc_zones", {}).items():
+                    zone = room_obj.calc_zones.get(zone_id)
+                    if zone:
+                        zone.enabled = zone_dict.get("enabled", True)
+                        zone.visible = zone_dict.get("visible", True)
+
+            rooms_data = data_dict.get("rooms")
+            if isinstance(rooms_data, dict):
+                for room_id, room_data in rooms_data.items():
+                    room = session.project.rooms.get(room_id)
+                    if room:
+                        apply_to_room(room, room_data)
+            else:
+                for room in session.project.rooms.values():
+                    apply_to_room(room, data_dict)
+        except Exception as json_err:
+            logger.warning(f"Failed to post-process load JSON: {json_err}")
+
         loaded_units = str(session.room.units)
         logger.info(f"Project.load() succeeded: {session.room.x}x{session.room.y}x{session.room.z} ({loaded_units})")
 

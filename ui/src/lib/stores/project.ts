@@ -319,6 +319,7 @@ function lampToSessionLamp(lamp: LampInstance | Omit<LampInstance, 'id'>): Sessi
     aimz: lamp.aimz,
     scaling_factor: lamp.scaling_factor,
     enabled: lamp.enabled !== false,
+    visible: lamp.visible !== false,
   };
 }
 
@@ -389,6 +390,7 @@ function zoneToSessionZone(zone: CalcZone | Omit<CalcZone, 'id'>): SessionZoneIn
     view_target: zone.view_target,
     // Display
     display_mode: zone.display_mode,
+    visible: zone.visible !== false,
   };
 }
 
@@ -787,6 +789,7 @@ function convertSessionZoneState(state: SessionZoneState): CalcZone {
     name: state.name,
     type: state.type,
     enabled: state.enabled,
+    visible: state.visible !== false,
     isStandard: state.is_standard ?? false,
     dose: state.dose ?? false,
     hours: state.hours ?? 8,
@@ -1509,6 +1512,7 @@ function createProjectStore() {
         aimz: lamp.aimz,
         scaling_factor: lamp.scaling_factor,
         enabled: lamp.enabled,
+        visible: lamp.visible !== false,
         has_ies_file: lamp.has_ies_file ?? true,
         has_spectrum_file: lamp.has_spectrum_file ?? false,
       }));
@@ -1519,6 +1523,7 @@ function createProjectStore() {
         name: zone.name,
         type: zone.type,
         enabled: zone.enabled,
+        visible: zone.visible !== false,
         isStandard: zone.is_standard ?? false,
         resolution_mode: 'num_points' as const,
         num_x: zone.num_x,

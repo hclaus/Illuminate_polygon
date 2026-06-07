@@ -283,6 +283,7 @@ def _create_lamp_from_input(lamp_input, units=None) -> Lamp:
         logger.info(f"Created custom lamp: has_ies={lamp.ies is not None}")
 
     lamp.enabled = lamp_input.enabled
+    lamp.visible = getattr(lamp_input, 'visible', True)
     if lamp_input.name is not None:
         lamp.name = lamp_input.name
     # Persist "custom" so it survives save/load (guv_calcs serializes preset_id)
@@ -298,6 +299,7 @@ def _create_zone_from_input(zone_input, room: Room):
         zone = room.calc_zones.get(zone_input.id)
         if zone is not None:
             zone.enabled = zone_input.enabled
+            zone.visible = getattr(zone_input, 'visible', True)
             if hasattr(zone_input, 'display_mode') and zone_input.display_mode is not None:
                 zone.display_mode = zone_input.display_mode
             return zone
@@ -412,6 +414,7 @@ def _create_zone_from_input(zone_input, room: Room):
         raise HTTPException(status_code=400, detail=f"Unknown zone type: {zone_input.type}")
 
     zone.enabled = zone_input.enabled
+    zone.visible = getattr(zone_input, 'visible', True)
     if hasattr(zone_input, 'display_mode') and zone_input.display_mode is not None:
         zone.display_mode = zone_input.display_mode
     return zone
@@ -443,6 +446,7 @@ def _lamp_to_loaded(lamp, lamp_id: str):
         orientation=getattr(lamp, 'heading', 0.0),
         scaling_factor=lamp.scaling_factor,
         enabled=getattr(lamp, 'enabled', True),
+        visible=getattr(lamp, 'visible', True),
         has_ies_file=has_ies,
         has_spectrum_file=has_spectrum,
     )
@@ -459,6 +463,7 @@ def _zone_to_loaded(zone, zone_id: str):
         name=getattr(zone, 'name', None),
         type=zone_type,
         enabled=getattr(zone, 'enabled', True),
+        visible=getattr(zone, 'visible', True),
         is_standard=zone_id in (EYE_LIMITS, SKIN_LIMITS, WHOLE_ROOM_FLUENCE),
         num_x=getattr(zone, 'num_x', None),
         num_y=getattr(zone, 'num_y', None),
