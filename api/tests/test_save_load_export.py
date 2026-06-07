@@ -604,3 +604,196 @@ class TestMultipleZonesInit:
         assert len(planes) == 2
         modes = {z["calc_mode"] for z in planes}
         assert modes == {"fluence_rate", "eye_directional"}
+
+
+class TestContourSettingsSaveLoad:
+    def test_contour_settings_round_trip(self, client, session_headers):
+        contour_data = {
+            "levels": "0.5, 1.0, 1.5",
+            "labels": "Level 1, Level 2, Level 3",
+            "colors": "#ff0000, #00ff00, #0000ff",
+            "floorColor": "#000000",
+            "sigma": 1.5,
+            "filled": True,
+            "grid": False,
+            "contourLabels": True,
+            "equalAspect": True,
+            "flipY": False,
+            "exportScale": 3,
+            "activePreset": "Custom",
+            "overlays": [
+                {
+                    "id": "ov1",
+                    "src": "data:image/png;base64,abc",
+                    "kind": "data",
+                    "relX": 0.25,
+                    "relY": 0.45,
+                    "relW": 0.15,
+                    "relH": 0.20,
+                    "rot": 45.0,
+                    "opacity": 0.85,
+                    "computer_path": "C:\\path\\to\\file.png",
+                }
+            ],
+        }
+
+        resp = client.post(
+            f"{API}/session/init",
+            json={
+                "room": ROOM,
+                "lamps": [LAMP],
+                "zones": [
+                    {
+                        "type": "plane",
+                        "height": 1.0,
+                        "num_x": 5,
+                        "num_y": 5,
+                        "contour_settings": contour_data,
+                    }
+                ],
+            },
+            headers=session_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        # Get zones to check settings
+        zones_resp = client.get(f"{API}/session/zones", headers=session_headers)
+        assert zones_resp.status_code == 200
+        data = zones_resp.json()
+        assert data["zones"][0]["contour_settings"] is not None
+        assert data["zones"][0]["contour_settings"]["sigma"] == 1.5
+        assert data["zones"][0]["contour_settings"]["overlays"][0]["computer_path"] == "C:\\path\\to\\file.png"
+
+        # Update zone through update endpoint to ensure updating works
+        status = client.get(f"{API}/session/status", headers=session_headers).json()
+        zone_id = status["zone_ids"][0]
+
+        updated_contour = copy.deepcopy(contour_data)
+        updated_contour["sigma"] = 2.0
+        updated_contour["overlays"][0]["computer_path"] = "D:\\new\\path.png"
+
+        update_resp = client.patch(
+            f"{API}/session/zones/{zone_id}",
+            json={"contour_settings": updated_contour},
+            headers=session_headers,
+        )
+        assert update_resp.status_code == 200, update_resp.text
+
+        # Get zones to check updated settings
+        zones_resp2 = client.get(f"{API}/session/zones", headers=session_headers)
+        assert zones_resp2.status_code == 200
+        data2 = zones_resp2.json()
+        assert data2["zones"][0]["contour_settings"]["sigma"] == 2.0
+        assert data2["zones"][0]["contour_settings"]["overlays"][0]["computer_path"] == "D:\\new\\path.png"
+
+        # Save and load to verify GUV persistence
+        loaded, saved = _save_and_load(client, session_headers)
+
+        # Check in raw saved JSON
+        saved_room = next(iter(saved["data"]["rooms"].values()))
+        saved_zone = next(iter(saved_room["calc_zones"].values()))
+        assert saved_zone["contour_settings"] is not None
+        assert saved_zone["contour_settings"]["sigma"] == 2.0
+        assert saved_zone["contour_settings"]["overlays"][0]["computer_path"] == "D:\\new\\path.png"
+
+        # Check in loaded output response
+        loaded_zone = loaded["zones"][0]
+        assert loaded_zone["contour_settings"] is not None
+        assert loaded_zone["contour_settings"]["sigma"] == 2.0
+        assert loaded_zone["contour_settings"]["overlays"][0]["computer_path"] == "D:\\new\\path.png"
+
+    def test_contour_plots_exported_in_zip(self, client, session_headers):
+        contour_data = {
+            "levels": "0.5, 1.0, 1.5",
+            "labels": "L1, L2, L3",
+            "colors": "#ff0000, #00ff00, #0000ff",
+            "floorColor": "#000000",
+            "sigma": 1.5,
+            "filled": True,
+            "grid": False,
+            "contourLabels": True,
+            "equalAspect": True,
+            "flipY": False,
+            "exportScale": 3,
+            "activePreset": "Custom",
+            "overlays": [],
+        }
+
+        # Initialize session with a plane zone that has contour_settings and display_mode='contours'
+        client.post(
+            f"{API}/session/init",
+            json={
+                "room": ROOM,
+                "lamps": [LAMP],
+                "zones": [
+                    {
+                        "id": "my_contour_zone",
+                        "type": "plane",
+                        "height": 1.0,
+                        "num_x": 5,
+                        "num_y": 5,
+                        "display_mode": "contours",
+                        "contour_settings": contour_data,
+                    }
+                ],
+            },
+            headers=session_headers,
+        )
+
+        # Calculate values first (required for export)
+        calc_resp = client.post(f"{API}/session/calculate", headers=session_headers)
+        assert calc_resp.status_code == 200
+
+        # Export zip with include_plots=True
+        import unittest.mock
+        import api.v1.session_helpers as helpers
+        with unittest.mock.patch("api.v1.session_helpers.generate_contour_plot", wraps=helpers.generate_contour_plot) as mock_gen:
+            export_resp = client.get(f"{API}/session/export?include_plots=true", headers=session_headers)
+            assert export_resp.status_code == 200
+            assert "application/zip" in export_resp.headers["content-type"]
+            assert mock_gen.called
+
+        # Open zip and check that the png is present and contains valid data
+        zip_bytes = export_resp.content
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as z:
+            namelist = z.namelist()
+            assert any("my_contour_zone.png" in name for name in namelist)
+
+    def test_contour_plots_exported_in_zip_defaults(self, client, session_headers):
+        # Initialize session with standard zones, setting EyeLimits to display_mode='contours' but no settings
+        client.post(
+            f"{API}/session/init",
+            json={
+                "room": ROOM,
+                "lamps": [LAMP],
+                "zones": [
+                    {
+                        "id": "EyeLimits",
+                        "type": "plane",
+                        "isStandard": True,
+                        "height": 1.8,
+                        "display_mode": "contours"
+                    }
+                ],
+            },
+            headers=session_headers,
+        )
+
+        # Calculate values first
+        calc_resp = client.post(f"{API}/session/calculate", headers=session_headers)
+        assert calc_resp.status_code == 200
+
+        # Export zip with include_plots=True
+        import unittest.mock
+        import api.v1.session_helpers as helpers
+        with unittest.mock.patch("api.v1.session_helpers.generate_contour_plot", wraps=helpers.generate_contour_plot) as mock_gen:
+            export_resp = client.get(f"{API}/session/export?include_plots=true", headers=session_headers)
+            assert export_resp.status_code == 200
+            assert "application/zip" in export_resp.headers["content-type"]
+            assert mock_gen.called
+
+        # Open zip and check that the standard zone png is present
+        zip_bytes = export_resp.content
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as z:
+            namelist = z.namelist()
+            assert any("Eye Dose (8 Hours).png" in name for name in namelist)

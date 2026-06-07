@@ -391,6 +391,7 @@ function zoneToSessionZone(zone: CalcZone | Omit<CalcZone, 'id'>): SessionZoneIn
     // Display
     display_mode: zone.display_mode,
     visible: zone.visible !== false,
+    contour_settings: zone.contour_settings,
   };
 }
 
@@ -801,6 +802,7 @@ function convertSessionZoneState(state: SessionZoneState): CalcZone {
     x_spacing: state.x_spacing,
     y_spacing: state.y_spacing,
     display_mode: (state.display_mode as CalcZone['display_mode']) ?? 'heatmap',
+    contour_settings: state.contour_settings,
   };
 
   if (state.type === 'volume') {
@@ -1566,6 +1568,7 @@ function createProjectStore() {
         aim_y: zone.aim_y,
         aim_z: zone.aim_z,
         display_mode: zone.display_mode as any,
+        contour_settings: zone.contour_settings,
       }));
 
       // Check if any standard zones were loaded and update room config

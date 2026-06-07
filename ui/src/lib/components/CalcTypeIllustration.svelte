@@ -1,6 +1,6 @@
 <script lang="ts">
 	interface Props {
-		type: 'fluence_rate' | 'planar_normal' | 'planar_max' | 'vertical' | 'vertical_dir' | 'eye_worst_case' | 'eye_directional' | 'eye_target' | 'custom' | 'offset_on' | 'offset_off' | 'calc_plane' | 'calc_vol' | 'calc_point' | 'display_heatmap' | 'display_numeric' | 'display_markers' | 'display_none' | 'surface_xy' | 'surface_xz' | 'surface_yz' | 'dir_up' | 'dir_down' | 'dir_right' | 'dir_left' | 'dir_north' | 'dir_south' | 'dir_omni' | 'dir_bidir';
+		type: 'fluence_rate' | 'planar_normal' | 'planar_max' | 'vertical' | 'vertical_dir' | 'eye_worst_case' | 'eye_directional' | 'eye_target' | 'custom' | 'offset_on' | 'offset_off' | 'calc_plane' | 'calc_vol' | 'calc_point' | 'display_heatmap' | 'display_numeric' | 'display_markers' | 'display_none' | 'display_contour' | 'surface_xy' | 'surface_xz' | 'surface_yz' | 'dir_up' | 'dir_down' | 'dir_right' | 'dir_left' | 'dir_north' | 'dir_south' | 'dir_omni' | 'dir_bidir';
 		size?: number;
 	}
 
@@ -357,5 +357,11 @@
 		<line x1="24" y1="29" x2="24" y2="40" stroke-width="2.5" />
 		<line x1="24" y1="40" x2="20" y2="35" stroke-width="2.5" />
 		<line x1="24" y1="40" x2="28" y2="35" stroke-width="2.5" />
+	{:else if type === 'display_contour'}
+		<!-- Contour lines style: boundary box with layered wavy rings -->
+		<rect x="6" y="6" width="36" height="36" rx="2" />
+		<path d="M10 24 C10 14, 18 10, 24 10 C32 10, 38 16, 38 24 C38 32, 30 38, 24 38 C16 38, 10 32, 10 24 Z" opacity="0.35" />
+		<path d="M15 24 C15 17, 20 15, 24 15 C28 15, 33 19, 33 24 C33 29, 28 33, 24 33 C19 33, 15 29, 15 24 Z" opacity="0.65" />
+		<path d="M20 24 C20 21, 22 20, 24 20 C26 20, 28 22, 28 24 C28 26, 26 28, 24 28 C22 28, 20 26, 20 24 Z" fill="currentColor" stroke="none" />
 	{/if}
 </svg>

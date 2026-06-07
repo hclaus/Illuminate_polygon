@@ -111,6 +111,8 @@ def update_session_zone(zone_id: str, updates: SessionZoneUpdate, session: Initi
             zone.set_offset(updates.offset)
         if updates.display_mode is not None:
             zone.display_mode = updates.display_mode
+        if updates.contour_settings is not None:
+            zone.contour_settings = updates.contour_settings
 
         # Calc mode update — delegates to guv_calcs PlaneCalcMode via
         # set_calc_mode(), which sets horiz/vert/use_normal/fov_vert/fov_horiz.
@@ -317,6 +319,7 @@ def get_session_zones(session: InitializedSessionDep):
             minutes=m,
             seconds=s,
             display_mode=getattr(zone, 'display_mode', 'heatmap'),
+            contour_settings=getattr(zone, 'contour_settings', None),
         )
         if is_plane:
             zone_state.calc_mode = zone.calc_mode
@@ -433,8 +436,17 @@ def get_zone_plot(
         fig = None
         try:
             with plt.style.context(style):
-                # Generate the zone plot (returns tuple of fig, ax)
-                fig, ax = zone.plot()
+                if getattr(zone, 'display_mode', None) == 'contours':
+                    from .session_helpers import generate_contour_plot
+                    fig, ax = generate_contour_plot(
+                        zone,
+                        theme=theme,
+                        dpi=dpi,
+                        units=str(session.room.units)
+                    )
+                else:
+                    # Generate the zone plot (returns tuple of fig, ax)
+                    fig, ax = zone.plot()
 
                 # Set figure size
                 fig.set_size_inches(10, 8)

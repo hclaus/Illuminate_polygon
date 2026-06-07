@@ -377,6 +377,60 @@ def export_session_all(session: InitializedSessionDep, include_plots: bool = Fal
             })
             zip_bytes = session.room.export_zip(include_plots=include_plots, include_report=include_report)
 
+        if include_plots:
+            import io
+            import os
+            import zipfile
+            # Check if any zone uses contours and has calculated values
+            contour_zones = [
+                zone
+                for zone in session.room.calc_zones.values()
+                if zone.values is not None and getattr(zone, 'display_mode', None) == 'contours'
+            ]
+            if contour_zones:
+                from .session_helpers import generate_contour_plot
+
+                def clean_str(s):
+                    return "".join(c for c in s if c.isalnum()).lower()
+
+                in_buffer = io.BytesIO(zip_bytes)
+                out_buffer = io.BytesIO()
+                with zipfile.ZipFile(in_buffer, 'r') as in_zip:
+                    with zipfile.ZipFile(out_buffer, 'w', zipfile.ZIP_DEFLATED) as out_zip:
+                        for item in in_zip.infolist():
+                            filename = item.filename
+                            name_without_ext, ext = os.path.splitext(filename)
+                            
+                            matched_zone = None
+                            if ext.lower() == ".png":
+                                clean_filename = clean_str(name_without_ext)
+                                for zone in contour_zones:
+                                    z_name = getattr(zone, 'name', None) or ""
+                                    z_id = getattr(zone, 'id', None) or ""
+                                    if clean_str(z_name) == clean_filename or clean_str(z_id) == clean_filename:
+                                        matched_zone = zone
+                                        break
+                            
+                            if matched_zone:
+                                fig = None
+                                try:
+                                    fig, ax = generate_contour_plot(
+                                        matched_zone,
+                                        theme="light",
+                                        dpi=100,
+                                        units=str(session.room.units)
+                                    )
+                                    buf = io.BytesIO()
+                                    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+                                    buf.seek(0)
+                                    out_zip.writestr(filename, buf.read())
+                                finally:
+                                    if fig is not None:
+                                        plt.close(fig)
+                            else:
+                                out_zip.writestr(item, in_zip.read(filename))
+                zip_bytes = out_buffer.getvalue()
+
         return Response(
             content=zip_bytes,
             media_type="application/zip",
@@ -587,6 +641,15 @@ def save_session(session: InitializedSessionDep):
                     if zone:
                         zone_dict["enabled"] = getattr(zone, "enabled", True)
                         zone_dict["visible"] = getattr(zone, "visible", True)
+                        zone_dict["display_mode"] = getattr(zone, "display_mode", "heatmap")
+                        contour_settings = getattr(zone, "contour_settings", None)
+                        if contour_settings:
+                            if hasattr(contour_settings, "model_dump"):
+                                zone_dict["contour_settings"] = contour_settings.model_dump()
+                            elif hasattr(contour_settings, "dict"):
+                                zone_dict["contour_settings"] = contour_settings.dict()
+                            else:
+                                zone_dict["contour_settings"] = contour_settings
             guv_content = json.dumps(guv_data, indent=4)
         except Exception as json_err:
             logger.warning(f"Failed to post-process save JSON: {json_err}")
@@ -642,6 +705,14 @@ def load_session(request: dict, session: SessionCreateDep):
                     if zone:
                         zone.enabled = zone_dict.get("enabled", True)
                         zone.visible = zone_dict.get("visible", True)
+                        zone.display_mode = zone_dict.get("display_mode", "heatmap")
+                        contour_settings_data = zone_dict.get("contour_settings")
+                        if contour_settings_data:
+                            from .session_schemas import SessionContourSettings
+                            try:
+                                zone.contour_settings = SessionContourSettings(**contour_settings_data)
+                            except Exception as parse_err:
+                                logger.warning(f"Failed to parse contour_settings for zone {zone_id}: {parse_err}")
 
             rooms_data = data_dict.get("rooms")
             if isinstance(rooms_data, dict):

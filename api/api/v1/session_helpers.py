@@ -302,6 +302,8 @@ def _create_zone_from_input(zone_input, room: Room):
             zone.visible = getattr(zone_input, 'visible', True)
             if hasattr(zone_input, 'display_mode') and zone_input.display_mode is not None:
                 zone.display_mode = zone_input.display_mode
+            if hasattr(zone_input, 'contour_settings') and zone_input.contour_settings is not None:
+                zone.contour_settings = zone_input.contour_settings
             return zone
         logger.warning(f"add_standard_zones() did not create {zone_input.id}, falling back to manual creation")
 
@@ -417,6 +419,8 @@ def _create_zone_from_input(zone_input, room: Room):
     zone.visible = getattr(zone_input, 'visible', True)
     if hasattr(zone_input, 'display_mode') and zone_input.display_mode is not None:
         zone.display_mode = zone_input.display_mode
+    if hasattr(zone_input, 'contour_settings') and zone_input.contour_settings is not None:
+        zone.contour_settings = zone_input.contour_settings
     return zone
 
 
@@ -473,6 +477,7 @@ def _zone_to_loaded(zone, zone_id: str):
         dose=getattr(zone, 'dose', None),
         hours=h, minutes=m, seconds=s,
         display_mode=getattr(zone, 'display_mode', 'heatmap'),
+        contour_settings=getattr(zone, 'contour_settings', None),
     )
 
     if zone_type == "plane":
@@ -519,5 +524,347 @@ def _zone_to_loaded(zone, zone_id: str):
         loaded.z_max = getattr(zone, 'z2', None)
 
     return loaded
+
+
+def _format_exposure(td) -> str:
+    """Format a timedelta or number of seconds as a human-readable exposure label."""
+    if td is None:
+        return ""
+    if isinstance(td, (int, float)):
+        import datetime
+        td = datetime.timedelta(seconds=td)
+    secs = td.total_seconds()
+    if secs >= 3600 and secs % 3600 == 0:
+        n = int(secs // 3600)
+        return f"{n} Hour"
+    if secs >= 60 and secs % 60 == 0:
+        n = int(secs // 60)
+        return f"{n} Minute"
+    return f"{secs:g} Second"
+
+
+def get_asset_path(src: str):
+    import os
+    from pathlib import Path
+    if src.startswith("/") or src.startswith("\\"):
+        src = src.lstrip("/\\")
+    # Search in ui/static or workspace root
+    base_dir = Path(__file__).resolve().parents[3]
+    path1 = base_dir / "ui" / "static" / src
+    if path1.exists():
+        return path1
+    path2 = base_dir / src
+    if path2.exists():
+        return path2
+    return None
+
+
+def load_overlay_image(overlay):
+    import base64
+    import io
+    from pathlib import Path
+    from PIL import Image as PILImage
+
+    # Retrieve field value, supporting both dict and object
+    def get_field(obj, name, default=None):
+        if isinstance(obj, dict):
+            return obj.get(name, default)
+        return getattr(obj, name, default)
+
+    comp_path = get_field(overlay, 'computer_path')
+    if comp_path:
+        p = Path(comp_path)
+        if p.exists():
+            try:
+                return PILImage.open(p)
+            except Exception as e:
+                logger.warning(f"Failed to load image from computer_path {comp_path}: {e}")
+                
+    src = get_field(overlay, 'src', '')
+    if src.startswith("data:image/"):
+        try:
+            parts = src.split(",", 1)
+            if len(parts) == 2:
+                data = base64.b64decode(parts[1])
+                return PILImage.open(io.BytesIO(data))
+        except Exception as e:
+            logger.warning(f"Failed to decode base64 overlay image: {e}")
+            
+    asset_path = get_asset_path(src)
+    if asset_path:
+        try:
+            return PILImage.open(asset_path)
+        except Exception as e:
+            logger.warning(f"Failed to load image from asset_path {asset_path}: {e}")
+            
+    return None
+
+
+BUILT_IN_PRESETS = {
+    'Eye limits irradiance': {
+        'levels': '0.7, 1.06, 2.13, 3.2, 5.33, 10.6',
+        'labels': 'ICNIRP, 20% ACGIH, 40% ACGIH, 60% ACGIH, 100% ACGIH, ACGIH 4hrs',
+        'colors': '#2ED13B, #BFF000, #FFD400, #FF8A00, #FF1A1A, #C400E0',
+        'floorColor': '#00A24A'
+    },
+    'Skin limits irradiance': {
+        'levels': '0.7, 3.2, 6.4, 9.6, 15.9, 32',
+        'labels': 'ICNIRP, 20% ACGIH, 40% ACGIH, 60% ACGIH, 100% ACGIH, ACGIH 4hrs',
+        'colors': '#2ED13B, #BFF000, #FFD400, #FF8A00, #FF1A1A, #C400E0',
+        'floorColor': '#00A24A'
+    },
+    'Eye limits Dose': {
+        'levels': '23, 32, 64, 96, 161, 322',
+        'labels': 'ICNIRP, 20% ACGIH, 40% ACGIH, 60% ACGIH, 100% ACGIH, ACGIH 4hrs',
+        'colors': '#2ED13B, #BFF000, #FFD400, #FF8A00, #FF1A1A, #C400E0',
+        'floorColor': '#00A24A'
+    },
+    'Skin limits dose': {
+        'levels': '23, 96, 192, 287, 479, 958',
+        'labels': 'ICNIRP, 20% ACGIH, 40% ACGIH, 60% ACGIH, 100% ACGIH, ACGIH 4hrs',
+        'colors': '#2ED13B, #BFF000, #FFD400, #FF8A00, #FF1A1A, #C400E0',
+        'floorColor': '#00A24A'
+    }
+}
+
+
+def get_default_preset_name(zone):
+    name = (getattr(zone, 'name', None) or getattr(zone, 'id', None) or '').lower()
+    is_dose = 'dose' in name or getattr(zone, 'dose', False)
+    is_skin = 'skin' in name
+    is_eye = 'eye' in name
+
+    if is_dose:
+        if is_skin:
+            return 'Skin limits dose'
+        if is_eye:
+            return 'Eye limits Dose'
+        return 'Eye limits Dose'
+    else:
+        if is_skin:
+            return 'Skin limits irradiance'
+        if is_eye:
+            return 'Eye limits irradiance'
+        return 'Eye limits irradiance'
+
+
+def generate_contour_plot(zone, theme="light", dpi=100, units="meters"):
+    """
+    Generate a contour plot for a Plane zone using Matplotlib.
+    Applies floorColor, levels, colors, filled, grid, contourLabels, equalAspect, and overlays.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from PIL import Image as PILImage
+
+    settings = getattr(zone, 'contour_settings', None)
+    values = zone.get_values()
+    if values is None:
+        return None
+        
+    # Helper to read settings fields from dict/Pydantic
+    def get_field(obj, name, default=None):
+        if obj is None:
+            return default
+        if isinstance(obj, dict):
+            return obj.get(name, default)
+        return getattr(obj, name, default)
+
+    default_preset_name = get_default_preset_name(zone)
+    default_preset = BUILT_IN_PRESETS.get(default_preset_name)
+
+    levels_str = get_field(settings, 'levels')
+    if not levels_str or not str(levels_str).strip():
+        levels_str = default_preset['levels']
+    
+    levels = []
+    for s in str(levels_str).split(','):
+        if s.strip():
+            try:
+                levels.append(float(s.strip()))
+            except ValueError:
+                pass
+    levels = sorted(list(set(levels)))
+    if not levels:
+        levels = [float(s.strip()) for s in default_preset['levels'].split(',')]
+
+    colors_str = get_field(settings, 'colors')
+    if not colors_str or not str(colors_str).strip():
+        colors_str = default_preset['colors']
+    colors = [s.strip() for s in str(colors_str).split(',') if s.strip()]
+
+    floor_color = get_field(settings, 'floorColor')
+    if not floor_color or not str(floor_color).strip():
+        floor_color = default_preset['floorColor']
+
+    filled = get_field(settings, 'filled')
+    if filled is None:
+        filled = True
+
+    grid = get_field(settings, 'grid')
+    if grid is None:
+        grid = True
+
+    contour_labels = get_field(settings, 'contourLabels')
+    if contour_labels is None:
+        contour_labels = True
+
+    equal_aspect = get_field(settings, 'equalAspect')
+    if equal_aspect is None:
+        equal_aspect = True
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    geom = zone.geometry
+    u_hat = getattr(geom, 'u_hat', None)
+    v_hat = getattr(geom, 'v_hat', None)
+    
+    if u_hat is not None and v_hat is not None:
+        def get_axis_label(vec):
+            abs_vec = np.abs(vec)
+            idx = int(np.argmax(abs_vec))
+            if abs_vec[idx] > 0.9:
+                return ['X', 'Y', 'Z'][idx]
+            return None
+            
+        u_label = get_axis_label(u_hat) or 'U'
+        v_label = get_axis_label(v_hat) or 'V'
+        
+        mins = geom.mins
+        maxs = geom.maxs
+        extent = [mins[0], maxs[0], mins[1], maxs[1]]
+        v_positive = v_hat[int(np.argmax(np.abs(v_hat)))] > 0
+    else:
+        u_label = 'X'
+        v_label = 'Y'
+        extent = [geom.x1, geom.x2, geom.y1, geom.y2]
+        v_positive = True
+
+    u1, u2, v1, v2 = extent
+    plot_values = values.T
+    
+    if not v_positive:
+        plot_values = plot_values[::-1]
+
+    num_y, num_x = plot_values.shape
+    x_coords = np.linspace(u1, u2, num_x)
+    y_coords = np.linspace(v1, v2, num_y)
+    X_grid, Y_grid = np.meshgrid(x_coords, y_coords)
+
+    levels_str = get_field(settings, 'levels', '')
+    levels = [float(s.strip()) for s in levels_str.split(',') if s.strip()]
+    levels = sorted(list(set(levels)))
+    
+    colors_str = get_field(settings, 'colors', '')
+    colors = [s.strip() for s in colors_str.split(',') if s.strip()]
+    
+    floor_color = get_field(settings, 'floorColor', '#00A24A')
+    filled = get_field(settings, 'filled', True)
+    grid = get_field(settings, 'grid', True)
+    contour_labels = get_field(settings, 'contourLabels', True)
+    equal_aspect = get_field(settings, 'equalAspect', True)
+
+    if filled:
+        max_val = np.max(plot_values) if plot_values.size > 0 else 0
+        upper_bound = max(max_val * 1.1 + 0.1, levels[-1] * 1.1 + 0.1) if levels else 1e9
+        cnt_levels = [0.0] + levels + [upper_bound]
+        cnt_colors = [floor_color] + colors
+        n_intervals = len(cnt_levels) - 1
+        if len(cnt_colors) < n_intervals:
+            cnt_colors += ['#cccccc'] * (n_intervals - len(cnt_colors))
+        elif len(cnt_colors) > n_intervals:
+            cnt_colors = cnt_colors[:n_intervals]
+            
+        cf = ax.contourf(X_grid, Y_grid, plot_values, levels=cnt_levels, colors=cnt_colors)
+    else:
+        bg_col = '#1a1a2e' if theme == 'dark' else '#ffffff'
+        ax.set_facecolor(bg_col)
+
+    stroke_color = 'rgba(255,255,255,0.7)' if theme == 'dark' else 'rgba(20,22,28,0.75)'
+    if isinstance(stroke_color, str) and stroke_color.startswith('rgba'):
+        parts = stroke_color.replace('rgba(', '').replace(')', '').split(',')
+        stroke_color = (float(parts[0])/255, float(parts[1])/255, float(parts[2])/255, float(parts[3]))
+        
+    cs = ax.contour(X_grid, Y_grid, plot_values, levels=levels, colors=[stroke_color], linewidths=1.0)
+
+    if contour_labels and len(levels) > 0:
+        lbl_color = '#dddddd' if theme == 'dark' else '#222222'
+        ax.clabel(cs, inline=True, fontsize=8, colors=lbl_color, fmt=lambda x: f"{x:g}")
+
+    if grid:
+        grid_color = 'rgba(255,255,255,0.15)' if theme == 'dark' else 'rgba(0,0,0,0.15)'
+        if isinstance(grid_color, str) and grid_color.startswith('rgba'):
+            parts = grid_color.replace('rgba(', '').replace(')', '').split(',')
+            grid_color = (float(parts[0])/255, float(parts[1])/255, float(parts[2])/255, float(parts[3]))
+        ax.grid(True, which='both', color=grid_color, linestyle='--', linewidth=0.5)
+    else:
+        ax.grid(False)
+
+    overlays = get_field(settings, 'overlays', [])
+    for o in overlays:
+        img = load_overlay_image(o)
+        if img is None:
+            continue
+            
+        opacity = get_field(o, 'opacity', 1.0)
+        rot = get_field(o, 'rot', 0.0)
+        relX = get_field(o, 'relX', 0.5)
+        relY = get_field(o, 'relY', 0.5)
+        relW = get_field(o, 'relW', 0.2)
+        relH = get_field(o, 'relH', 0.2)
+        
+        img = img.convert("RGBA")
+        if opacity < 1.0:
+            r, g, b, a = img.split()
+            a = a.point(lambda p: int(p * opacity))
+            img = PILImage.merge("RGBA", (r, g, b, a))
+            
+        if rot != 0:
+            img = img.rotate(-rot, expand=True, resample=PILImage.Resampling.BILINEAR)
+            
+        center_u = u1 + relX * (u2 - u1)
+        center_v = v1 + (1.0 - relY) * (v2 - v1)
+        
+        w_units = relW * (u2 - u1)
+        h_units = relH * (v2 - v1)
+        
+        img_orig = load_overlay_image(o)
+        if img_orig:
+            W_orig, H_orig = img_orig.size
+            scale_u = w_units / W_orig
+            scale_v = h_units / H_orig
+            W, H = img.size
+            w_box = W * scale_u
+            h_box = H * scale_v
+        else:
+            w_box, h_box = w_units, h_units
+            
+        overlay_extent = [
+            center_u - w_box / 2,
+            center_u + w_box / 2,
+            center_v - h_box / 2,
+            center_v + h_box / 2
+        ]
+        
+        ax.imshow(img, extent=overlay_extent, origin='lower', zorder=4)
+
+    ax.set_xlim(u1, u2)
+    ax.set_ylim(v1, v2)
+    ax.set_xlabel(f"{u_label} ({units})")
+    ax.set_ylabel(f"{v_label} ({units})")
+    
+    title = f"{zone.name} - Contours"
+    if zone.dose:
+        title += f" ({_format_exposure(zone.exposure_time)} Dose)"
+    else:
+        title += " (Irradiance)"
+    title += f" ({zone.height} {units})"
+    ax.set_title(title)
+    
+    if equal_aspect:
+        ax.set_aspect('equal')
+        
+    return fig, ax
+
 
 

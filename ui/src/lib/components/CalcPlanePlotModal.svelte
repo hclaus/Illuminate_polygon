@@ -2,7 +2,7 @@
 	import type { CalcZone, RoomConfig, LampInstance } from '$lib/types/project';
 	import { valueToColor } from '$lib/utils/colormaps';
 	import { theme } from '$lib/stores/theme';
-	import { lamps } from '$lib/stores/project';
+	import { lamps, project } from '$lib/stores/project';
 	import { userSettings } from '$lib/stores/settings';
 	import { unitAbbrev } from '$lib/utils/unitConversion';
 	import { getSessionZoneExport } from '$lib/api/client';
@@ -29,8 +29,19 @@
 	let savingPlot = $state(false);
 	let alertDialog = $state<{ title: string; message: string } | null>(null);
 
-	// Display mode toggle
-	let displayMode = $state<'heatmap' | 'numeric' | 'contour'>('heatmap');
+	// Initialize displayMode from zone.display_mode when opening
+	let displayMode = $state<'heatmap' | 'numeric' | 'contour'>(
+		zone.display_mode === 'contours' ? 'contour' :
+		zone.display_mode === 'numeric' ? 'numeric' : 'heatmap'
+	);
+
+	// Sync changes reactively back to the store
+	$effect(() => {
+		const storeMode = displayMode === 'contour' ? 'contours' : displayMode;
+		if (zone.display_mode !== storeMode) {
+			project.updateZone(zone.id, { display_mode: storeMode });
+		}
+	});
 
 	// Axes, ticks, and tick labels toggles
 	let showAxes = $state(true);

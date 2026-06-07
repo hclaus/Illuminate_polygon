@@ -116,6 +116,8 @@
 
 	// Sync local state when zone prop changes (e.g. unit conversion updates store values)
 	$effect(() => {
+		type = zone?.type || 'plane';
+		display_mode = zone?.display_mode ?? (zone?.show_values === false ? 'markers' : 'heatmap');
 		height = zone?.height ?? 1.0;
 		x1 = zone?.x1 ?? 0;
 		x2 = zone?.x2 ?? room.x;
@@ -1499,6 +1501,18 @@
 				<CalcTypeIllustration type="display_heatmap" size={36} />
 				<span class="zone-type-label">{type === 'volume' ? 'Iso' : 'Heatmap'}</span>
 			</button>
+			{#if type === 'plane'}
+				<button
+					type="button"
+					class="zone-type-btn"
+					class:active={display_mode === 'contours'}
+					title="Contours"
+					onclick={() => display_mode = 'contours'}
+				>
+					<CalcTypeIllustration type="display_contour" size={36} />
+					<span class="zone-type-label">Contours</span>
+				</button>
+			{/if}
 			<button
 				type="button"
 				class="zone-type-btn"
@@ -1680,7 +1694,8 @@
 		align-items: center;
 		justify-content: center;
 		gap: var(--spacing-xs);
-		width: 80px;
+		flex: 1;
+		min-width: 0;
 		padding: var(--spacing-sm);
 		background: var(--color-bg);
 		border: 2px solid var(--color-bg);

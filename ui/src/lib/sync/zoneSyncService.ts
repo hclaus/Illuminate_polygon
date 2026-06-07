@@ -114,6 +114,7 @@ function buildApiUpdates(partial: Partial<CalcZone>): Record<string, unknown> {
 
   // Display
   if (partial.display_mode != null) updates.display_mode = partial.display_mode;
+  if (partial.contour_settings != null) updates.contour_settings = partial.contour_settings;
 
   return updates;
 }

@@ -227,6 +227,35 @@ export const LoadedLampSchema = z.object({
   has_spectrum_file: z.boolean().optional().default(false),
 }).passthrough();
 
+export const ContourOverlaySchema = z.object({
+  id: z.string(),
+  src: z.string(),
+  kind: z.enum(['data', 'asset']),
+  relX: z.number(),
+  relY: z.number(),
+  relW: z.number(),
+  relH: z.number(),
+  rot: z.number(),
+  opacity: z.number(),
+  computer_path: z.string().nullable().optional(),
+}).passthrough();
+
+export const ContourSettingsSchema = z.object({
+  levels: z.string(),
+  labels: z.string(),
+  colors: z.string(),
+  floorColor: z.string(),
+  sigma: z.number(),
+  filled: z.boolean(),
+  grid: z.boolean(),
+  contourLabels: z.boolean(),
+  equalAspect: z.boolean(),
+  flipY: z.boolean(),
+  exportScale: z.number(),
+  activePreset: z.string(),
+  overlays: z.array(ContourOverlaySchema).optional().default([]),
+}).passthrough();
+
 export const LoadedZoneSchema = z.object({
   id: z.string(),
   name: z.string().nullable().optional(),
@@ -279,6 +308,7 @@ export const LoadedZoneSchema = z.object({
   aim_z: z.number().nullish(),
   // Display
   display_mode: z.string().nullish(),
+  contour_settings: ContourSettingsSchema.nullish(),
 }).passthrough();
 
 export const LoadSessionResponseSchema = z.object({

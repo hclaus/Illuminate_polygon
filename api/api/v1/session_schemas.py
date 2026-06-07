@@ -51,6 +51,35 @@ class SessionLampInput(BaseModel):
     visible: bool = True
 
 
+class SessionContourOverlay(BaseModel):
+    id: str
+    src: str
+    kind: Literal["data", "asset"]
+    relX: float
+    relY: float
+    relW: float
+    relH: float
+    rot: float
+    opacity: float
+    computer_path: Optional[str] = None
+
+
+class SessionContourSettings(BaseModel):
+    levels: str
+    labels: str
+    colors: str
+    floorColor: str
+    sigma: float
+    filled: bool
+    grid: bool
+    contourLabels: bool
+    equalAspect: bool
+    flipY: bool
+    exportScale: int
+    activePreset: str
+    overlays: list[SessionContourOverlay] = []
+
+
 class SessionZoneInput(BaseModel):
     """Zone definition for session"""
     id: Optional[str] = None  # Optional: if omitted, guv_calcs Registry assigns ID
@@ -112,6 +141,7 @@ class SessionZoneInput(BaseModel):
 
     # Display
     display_mode: Optional[str] = "heatmap"
+    contour_settings: Optional[SessionContourSettings] = None
 
 
 class SessionInitRequest(BaseModel):
@@ -238,6 +268,7 @@ class SessionZoneUpdate(BaseModel):
     # Display
     display_mode: Optional[str] = None
     visible: Optional[bool] = None
+    contour_settings: Optional[SessionContourSettings] = None
 
 
 class SessionZoneUpdateResponse(BaseModel):
@@ -310,6 +341,7 @@ class SessionZoneState(BaseModel):
     # Display
     display_mode: Optional[str] = None
     visible: bool = True
+    contour_settings: Optional[SessionContourSettings] = None
 
 
 class GetZonesResponse(BaseModel):
@@ -683,6 +715,7 @@ class LoadedZone(BaseModel):
     # Display
     display_mode: Optional[str] = None
     visible: bool = True
+    contour_settings: Optional[SessionContourSettings] = None
 
 
 class SurfaceInfo(BaseModel):

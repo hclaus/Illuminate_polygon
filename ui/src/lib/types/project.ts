@@ -128,7 +128,36 @@ export type PlaneCalcMode =
 
 export type RefSurface = 'xy' | 'xz' | 'yz';
 
-export type ZoneDisplayMode = 'heatmap' | 'numeric' | 'markers' | 'none';
+export type ZoneDisplayMode = 'heatmap' | 'numeric' | 'markers' | 'contours' | 'none';
+
+export interface ContourOverlay {
+  id: string;
+  src: string;
+  kind: 'data' | 'asset';
+  relX: number;
+  relY: number;
+  relW: number;
+  relH: number;
+  rot: number;
+  opacity: number;
+  computer_path?: string | null;
+}
+
+export interface ContourSettings {
+  levels: string;
+  labels: string;
+  colors: string;
+  floorColor: string;
+  sigma: number;
+  filled: boolean;
+  grid: boolean;
+  contourLabels: boolean;
+  equalAspect: boolean;
+  flipY: boolean;
+  exportScale: number;
+  activePreset: string;
+  overlays?: ContourOverlay[];
+}
 
 export interface CalcZone {
   id: string;
@@ -196,6 +225,7 @@ export interface CalcZone {
   show_values?: boolean;  // deprecated, use display_mode
   display_mode?: ZoneDisplayMode;
   show_label?: boolean;   // Whether to show this zone's name label in 3D scene
+  contour_settings?: ContourSettings;
 }
 
 // Compliance check types (from check_lamps)

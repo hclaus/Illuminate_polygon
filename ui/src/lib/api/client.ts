@@ -1,7 +1,8 @@
 import type {
   LampSelectionOptions,
   SurfaceReflectances,
-  StateHashes
+  StateHashes,
+  ContourSettings
 } from '$lib/types/project';
 import {
   validateResponse,
@@ -1048,6 +1049,7 @@ export interface SessionZoneInput {
   view_target?: [number, number, number];
   // Display
   display_mode?: string;
+  contour_settings?: ContourSettings;
 }
 
 export interface SessionInitRequest {
@@ -1225,7 +1227,7 @@ export type { SessionZoneUpdateResponse } from './schemas';
  */
 export async function updateSessionZone(
   zoneId: string,
-  updates: Partial<Pick<SessionZoneInput, 'name' | 'enabled' | 'dose' | 'hours' | 'minutes' | 'seconds' | 'height' | 'offset' | 'calc_mode' | 'ref_surface' | 'direction' | 'horiz' | 'vert' | 'use_normal' | 'fov_vert' | 'fov_horiz' | 'view_direction' | 'view_target' | 'x1' | 'x2' | 'y1' | 'y2' | 'x_min' | 'x_max' | 'y_min' | 'y_max' | 'z_min' | 'z_max' | 'x' | 'y' | 'z' | 'aim_x' | 'aim_y' | 'aim_z' | 'num_x' | 'num_y' | 'num_z' | 'x_spacing' | 'y_spacing' | 'z_spacing'>>
+  updates: Partial<Pick<SessionZoneInput, 'name' | 'enabled' | 'dose' | 'hours' | 'minutes' | 'seconds' | 'height' | 'offset' | 'calc_mode' | 'ref_surface' | 'direction' | 'horiz' | 'vert' | 'use_normal' | 'fov_vert' | 'fov_horiz' | 'view_direction' | 'view_target' | 'x1' | 'x2' | 'y1' | 'y2' | 'x_min' | 'x_max' | 'y_min' | 'y_max' | 'z_min' | 'z_max' | 'x' | 'y' | 'z' | 'aim_x' | 'aim_y' | 'aim_z' | 'num_x' | 'num_y' | 'num_z' | 'x_spacing' | 'y_spacing' | 'z_spacing' | 'display_mode' | 'contour_settings'>>
 ): Promise<SessionZoneUpdateResponse> {
   const data = await request(`/session/zones/${encodeURIComponent(zoneId)}`, {
     method: 'PATCH',
@@ -1316,6 +1318,7 @@ export interface SessionZoneState {
   aim_z?: number;
   // Display
   display_mode?: string;
+  contour_settings?: ContourSettings;
 }
 
 export interface GetSessionZonesResponse {
