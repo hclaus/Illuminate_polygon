@@ -408,4 +408,33 @@ describe('LoadSessionResponseSchema', () => {
     const result = LoadSessionResponseSchema.safeParse(data);
     expect(result.success).toBe(false);
   });
+
+  it('validates response with partial contour_settings inside a zone', () => {
+    const data = {
+      success: true,
+      message: 'Loaded with contours',
+      room: validRoom,
+      lamps: [],
+      zones: [
+        {
+          ...validZone,
+          contour_settings: {
+            levels: "0.2, 0.4",
+            labels: "0.2, 0.4"
+          }
+        }
+      ]
+    };
+
+    const result = LoadSessionResponseSchema.safeParse(data);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const settings = result.data.zones[0].contour_settings;
+      expect(settings).toBeDefined();
+      expect(settings?.levels).toBe("0.2, 0.4");
+      expect(settings?.labels).toBe("0.2, 0.4");
+      expect(settings?.sigma).toBe(1.0); // Default value should be populated by Zod
+      expect(settings?.colors).toBe("#0000ff, #00ff00, #ffff00, #ff0000"); // Default color
+    }
+  });
 });

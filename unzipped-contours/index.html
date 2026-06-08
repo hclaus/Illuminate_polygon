@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Contour Plotter</title>
+<meta name="ext-resource-dependency" content="assets/head-top-view.png" data-resource-id="headImg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#0c3b2a">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#0c3b2a"/>
+    <g transform="translate(540,400)">
+      <ellipse rx="300" ry="250" fill="#2ED13B"/>
+      <ellipse rx="225" ry="185" fill="#BFF000"/>
+      <ellipse rx="155" ry="128" fill="#FFD400"/>
+      <ellipse rx="95" ry="78" fill="#FF8A00"/>
+      <ellipse rx="45" ry="37" fill="#FF1A1A"/>
+    </g>
+    <g transform="translate(900,150)">
+      <rect width="60" height="500" rx="6" fill="#0c3b2a" stroke="#ffffff" stroke-opacity="0.5"/>
+      <rect x="2" y="2" width="56" height="83" fill="#C400E0"/>
+      <rect x="2" y="85" width="56" height="83" fill="#FF1A1A"/>
+      <rect x="2" y="168" width="56" height="83" fill="#FF8A00"/>
+      <rect x="2" y="251" width="56" height="83" fill="#FFD400"/>
+      <rect x="2" y="334" width="56" height="83" fill="#BFF000"/>
+      <rect x="2" y="417" width="56" height="81" fill="#2ED13B"/>
+    </g>
+  </svg>
+</template>
+<div class="app">
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+    <header class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <h1>Contour Plotter</h1>
+        <p>2D field visualisation</p>
+      </div>
+    </header>
+
+    <div class="sidebar-scroll">
+      <!-- DATA -->
+      <section class="card">
+        <h2 class="card-title">Data</h2>
+        <div class="field">
+          <label>CSV file</label>
+          <div class="row">
+            <button id="loadCsvBtn" class="btn btn-ghost grow">Browse…</button>
+            <input type="file" id="csvInput" accept=".csv,text/csv" hidden />
+          </div>
+          <div class="filemeta"><span id="csvName">No file loaded</span></div>
+          <button id="sampleBtn" class="linkbtn">Load sample dataset</button>
+        </div>
+        <div class="field">
+          <label for="titleInput">Plot title</label>
+          <input type="text" id="titleInput" class="text" placeholder="Plot title" autocomplete="off" />
+        </div>
+        <div class="row gap">
+          <div class="field grow">
+            <label for="xLabelInput">X axis label</label>
+            <input type="text" id="xLabelInput" class="text" autocomplete="off" />
+          </div>
+          <div class="field grow">
+            <label for="yLabelInput">Y axis label</label>
+            <input type="text" id="yLabelInput" class="text" autocomplete="off" />
+          </div>
+        </div>
+      </section>
+
+      <!-- THRESHOLDS -->
+      <section class="card">
+        <h2 class="card-title">Thresholds</h2>
+        <div class="field">
+          <label for="presetSelect">Preset</label>
+          <div class="row gap">
+            <select id="presetSelect" class="select grow" autocomplete="off"></select>
+            <button id="savePresetBtn" class="btn btn-ghost icon" title="Save current as preset">Save</button>
+            <button id="delPresetBtn" class="btn btn-ghost icon" title="Delete preset">Del</button>
+          </div>
+          <div class="row gap" style="margin-top:8px;align-items:center">
+            <button id="exportPresetsBtn" class="linkbtn">Export presets…</button>
+            <span class="hint">·</span>
+            <button id="importPresetsBtn" class="linkbtn">Import…</button>
+            <input type="file" id="presetsFile" accept="application/json,.json" hidden />
+          </div>
+        </div>
+        <div class="field">
+          <label for="levelsInput">Levels <span class="hint">comma-separated</span></label>
+          <input type="text" id="levelsInput" class="text mono" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="labelsInput">Labels</label>
+          <input type="text" id="labelsInput" class="text" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="colorsInput">Band colors</label>
+          <input type="text" id="colorsInput" class="text mono" autocomplete="off" />
+          <div id="swatchRow" class="swatch-row"></div>
+        </div>
+        <div class="field">
+          <label>Floor color <span class="hint">below lowest level</span></label>
+          <div class="row gap center">
+            <button id="floorSwatch" class="swatch big" type="button"></button>
+            <span id="floorHex" class="mono muted small"></span>
+            <input type="color" id="floorColor" hidden />
+          </div>
+        </div>
+      </section>
+
+      <!-- SMOOTHING -->
+      <section class="card">
+        <h2 class="card-title">Smoothing</h2>
+        <div class="field">
+          <label for="sigma">Contour smoothing <span id="sigmaVal" class="hint mono"></span></label>
+          <input type="range" id="sigma" min="0" max="3" step="0.05" />
+          <p class="tip">Rounds the contour curves without altering the underlying values.</p>
+        </div>
+      </section>
+
+      <!-- DISPLAY -->
+      <section class="card">
+        <h2 class="card-title">Display</h2>
+        <label class="switch"><input type="checkbox" id="filled" checked /><span class="track"></span><span class="switch-label">Filled bands</span></label>
+        <label class="switch"><input type="checkbox" id="contourLabels" checked /><span class="track"></span><span class="switch-label">Contour labels</span></label>
+        <label class="switch"><input type="checkbox" id="grid" checked /><span class="track"></span><span class="switch-label">Grid lines</span></label>
+        <label class="switch"><input type="checkbox" id="equalAspect" checked /><span class="track"></span><span class="switch-label">Equal aspect ratio</span></label>
+        <label class="switch"><input type="checkbox" id="flipY" checked /><span class="track"></span><span class="switch-label">Flip Y-axis</span></label>
+      </section>
+
+      <!-- OVERLAYS -->
+      <section class="card">
+        <h2 class="card-title">Overlays</h2>
+        <div class="row gap">
+          <button id="addOverlayBtn" class="btn btn-ghost grow">Add image…</button>
+          <button id="addHeadBtn" class="btn btn-ghost grow">Add head sample</button>
+          <input type="file" id="overlayInput" accept="image/*" hidden />
+        </div>
+        <div id="overlayList" class="overlay-list"></div>
+        <p class="tip">Drag to move · corner handles resize · top handle rotates (hold ⇧ to snap)</p>
+      </section>
+    </div>
+
+    <footer class="sidebar-foot">
+      <div class="row gap center">
+        <label class="foot-label" for="exportScale">Export</label>
+        <select id="exportScale" class="select small" autocomplete="off">
+          <option value="1">1×</option>
+          <option value="2" selected>2×</option>
+          <option value="3">3×</option>
+        </select>
+        <button id="savePngBtn" class="btn btn-primary grow">Save PNG</button>
+      </div>
+    </footer>
+  </aside>
+
+  <!-- ===================== STAGE ===================== -->
+  <main class="stage">
+    <div class="stage-toolbar">
+      <span id="statusMsg" class="status"></span>
+      <div class="spacer"></div>
+      <button id="fitBtn" class="btn btn-ghost small">Fit</button>
+      <span id="zoomLabel" class="zoom-label mono">100%</span>
+    </div>
+    <div class="stage-area" id="stageArea">
+      <div class="figure-scaler" id="figureScaler">
+        <div class="figure-wrap" id="figureWrap">
+          <canvas id="figure"></canvas>
+          <div class="overlay-layer" id="overlayLayer"></div>
+          <div class="label-layer" id="labelLayer"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="data/sample-data.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/contour.js"></script>
+<script src="js/overlays.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+{
+    "guv-calcs_version": "0.7.1",
+    "timestamp": "2026-06-07 09:06:24 Pacific Daylight Time-0700",
+    "format": "project",
+    "data": {
+        "standard": "ANSI IES RP 27.1-22 (ACGIH Limits)",
+        "units": "meters",
+        "precision": 1,
+        "colormap": "plasma",
+        "on_collision": "increment",
+        "enable_reflectance": false,
+        "reflectance_max_num_passes": 100,
+        "reflectance_threshold": 0.02,
+        "rooms": {
+            "Room": {
+                "room_id": "Room",
+                "name": "Room",
+                "x": 4.0,
+                "y": 6.0,
+                "z": 2.7,
+                "units": "meters",
+                "enable_reflectance": false,
+                "reflectance_max_num_passes": 100,
+                "reflectance_threshold": 0.02,
+                "standard": "acgih",
+                "air_changes": 1.0,
+                "ozone_decay_constant": 2.7,
+                "precision": 1,
+                "on_collision": "increment",
+                "colormap": "plasma",
+                "surfaces": {
+                    "floor": {
+                        "R": 0.078,
+                        "T": 0.0,
+                        "x_spacing": 0.4,
+                        "y_spacing": 0.6
+                    },
+                    "ceiling": {
+                        "R": 0.078,
+                        "T": 0.0,
+                        "x_spacing": 0.4,
+                        "y_spacing": 0.6
+                    },
+                    "south": {
+                        "R": 0.078,
+                        "T": 0.0,
+                        "x_spacing": 0.4,
+                        "y_spacing": 0.27
+                    },
+                    "east": {
+                        "R": 0.078,
+                        "T": 0.0,
+                        "x_spacing": 0.6,
+                        "y_spacing": 0.27
+                    },
+                    "north": {
+                        "R": 0.078,
+                        "T": 0.0,
+                        "x_spacing": 0.4,
+                        "y_spacing": 0.27
+                    },
+                    "west": {
+                        "R": 0.078,
+                        "T": 0.0,
+                        "x_spacing": 0.6,
+                        "y_spacing": 0.27
+                    }
+                },
+                "lamps": {
+                    "Lamp": {
+                        "lamp_id": "Lamp",
+                        "name": "Lamp 1",
+                        "x": 2.0,
+                        "y": 3.0,
+                        "z": 2.6,
+                        "angle": 0.0,
+                        "aimx": 2.0,
+                        "aimy": 3.0,
+                        "aimz": 0.0,
+                        "intensity_units": "mw/sr",
+                        "guv_type": "krcl",
+                        "wavelength": 222,
+                        "width": null,
+                        "length": null,
+                        "height": null,
+                        "units": "meters",
+                        "source_density": 1,
+                        "scaling_factor": 1.0,
+                        "intensity_map": null,
+                        "enabled": false,
+                        "preset_id": null,
+                        "surface": {
+                            "width": 0.0,
+                            "length": 0.0,
+                            "height": 0.0,
+                            "units": "meters",
+                            "source_density": 1,
+                            "intensity_map": null,
+                            "_user_width": null,
+                            "_user_length": null,
+                            "_user_height": null,
+                            "_user_units": "meters"
+                        },
+                        "fixture": {
+                            "housing_width": 0.0,
+                            "housing_length": 0.0,
+                            "housing_height": 0.0,
+                            "shape": "rectangular"
+                        },
+                        "filedata": null,
+                        "spectrum": null,
+                        "visible": false
+                    }
+                },
+                "calc_zones": {
+                    "WholeRoomFluence": {
+                        "zone_id": "WholeRoomFluence",
+                        "name": "Whole Room Fluence",
+                        "calctype": "Volume",
+                        "dose": false,
+                        "exposure_time": 28800.0,
+                        "enabled": false,
+                        "display_mode": "none",
+                        "geometry": {
+                            "polygon": {
+                                "vertices": [
+                                    [
+                                        0.0,
+                                        0.0
+                                    ],
+                                    [
+                                        4.0,
+                                        0.0
+                                    ],
+                                    [
+                                        4.0,
+                                        6.0
+                                    ],
+                                    [
+                                        0.0,
+                                        6.0
+                                    ]
+                                ]
+                            },
+                            "origin": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "u_vec": [
+                                1.0,
+                                0.0,
+                                0.0
+                            ],
+                            "v_vec": [
+                                0.0,
+                                1.0,
+                                0.0
+                            ],
+                            "offset": true,
+                            "num_points_init": [
+                                25,
+                                25,
+                                25
+                            ],
+                            "depth": 2.7
+                        },
+                        "visible": true
+                    },
+                    "EyeLimits": {
+                        "zone_id": "EyeLimits",
+                        "name": "Eye Dose (8 Hours)",
+                        "calctype": "Plane",
+                        "dose": true,
+                        "exposure_time": 28800.0,
+                        "enabled": true,
+                        "display_mode": "heatmap",
+                        "geometry": {
+                            "polygon": {
+                                "vertices": [
+                                    [
+                                        0.0,
+                                        0.0
+                                    ],
+                                    [
+                                        4.0,
+                                        0.0
+                                    ],
+                                    [
+                                        4.0,
+                                        6.0
+                                    ],
+                                    [
+                                        0.0,
+                                        6.0
+                                    ]
+                                ]
+                            },
+                            "origin": [
+                                0.0,
+                                0.0,
+                                1.8
+                            ],
+                            "u_vec": [
+                                1.0,
+                                0.0,
+                                0.0
+                            ],
+                            "v_vec": [
+                                0.0,
+                                1.0,
+                                0.0
+                            ],
+                            "offset": true,
+                            "num_points_init": [
+                                50,
+                                50
+                            ]
+                        },
+                        "calc_mode": "eye_worst_case",
+                        "fov_vert": 80.0,
+                        "fov_horiz": 120.0,
+                        "use_normal": false,
+                        "vert": true,
+                        "horiz": false,
+                        "view_direction": null,
+                        "view_target": null,
+                        "visible": true
+                    },
+                    "SkinLimits": {
+                        "zone_id": "SkinLimits",
+                        "name": "Skin Dose (8 Hours)",
+                        "calctype": "Plane",
+                        "dose": true,
+                        "exposure_time": 28800.0,
+                        "enabled": true,
+                        "display_mode": "heatmap",
+                        "geometry": {
+                            "polygon": {
+                                "vertices": [
+                                    [
+                                        0.0,
+                                        0.0
+                                    ],
+                                    [
+                                        4.0,
+                                        0.0
+                                    ],
+                                    [
+                                        4.0,
+                                        6.0
+                                    ],
+                                    [
+                                        0.0,
+                                        6.0
+                                    ]
+                                ]
+                            },
+                            "origin": [
+                                0.0,
+                                0.0,
+                                1.8
+                            ],
+                            "u_vec": [
+                                1.0,
+                                0.0,
+                                0.0
+                            ],
+                            "v_vec": [
+                                0.0,
+                                1.0,
+                                0.0
+                            ],
+                            "offset": true,
+                            "num_points_init": [
+                                50,
+                                50
+                            ]
+                        },
+                        "calc_mode": "planar_normal",
+                        "fov_vert": 180.0,
+                        "fov_horiz": 360.0,
+                        "use_normal": true,
+                        "vert": false,
+                        "horiz": true,
+                        "view_direction": null,
+                        "view_target": null,
+                        "visible": true
+                    }
+                },
+                "objects": {}
+            }
+        }
+    }
+}

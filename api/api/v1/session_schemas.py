@@ -55,28 +55,28 @@ class SessionContourOverlay(BaseModel):
     id: str
     src: str
     kind: Literal["data", "asset"]
-    relX: float
-    relY: float
-    relW: float
-    relH: float
-    rot: float
-    opacity: float
+    relX: float = 0.0
+    relY: float = 0.0
+    relW: float = 1.0
+    relH: float = 1.0
+    rot: float = 0.0
+    opacity: float = 1.0
     computer_path: Optional[str] = None
 
 
 class SessionContourSettings(BaseModel):
-    levels: str
-    labels: str
-    colors: str
-    floorColor: str
-    sigma: float
-    filled: bool
-    grid: bool
-    contourLabels: bool
-    equalAspect: bool
-    flipY: bool
-    exportScale: int
-    activePreset: str
+    levels: Optional[str] = "0.2, 0.4, 1.0, 2.0"
+    labels: Optional[str] = "0.2, 0.4, 1.0, 2.0"
+    colors: Optional[str] = "#0000ff, #00ff00, #ffff00, #ff0000"
+    floorColor: Optional[str] = "#808080"
+    sigma: Optional[float] = 1.0
+    filled: Optional[bool] = True
+    grid: Optional[bool] = True
+    contourLabels: Optional[bool] = True
+    equalAspect: Optional[bool] = True
+    flipY: Optional[bool] = False
+    exportScale: Optional[int] = 1
+    activePreset: Optional[str] = "manual"
     overlays: list[SessionContourOverlay] = []
 
 
