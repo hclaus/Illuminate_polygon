@@ -973,7 +973,6 @@
 					onclick={(e) => { e.stopPropagation(); lampsLayerVisible = !lampsLayerVisible; }}
 					aria-label={lampsLayerVisible ? 'Hide all lamps' : 'Show all lamps'}
 					title={lampsLayerVisible ? 'Hide all lamps' : 'Show all lamps'}
-					use:enterToggle
 				>
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -1053,7 +1052,6 @@
 											onclick={(e) => { e.stopPropagation(); toggleLampVisibility(lamp.id); }}
 											aria-label={lampEyeActive ? `Hide ${lamp.name || 'lamp'}` : `Show ${lamp.name || 'lamp'}`}
 											title={lampEyeActive ? 'Hide' : 'Show'}
-											use:enterToggle
 										>
 											<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 												{#if lampEyeActive}
@@ -1073,7 +1071,6 @@
 											onclick={(e) => { e.stopPropagation(); project.updateLamp(lamp.id, { enabled: !(lamp.enabled !== false) }); }}
 											aria-label={lamp.enabled !== false ? `Exclude ${lamp.name || 'lamp'} from calculations` : `Include ${lamp.name || 'lamp'} in calculations`}
 											title={lamp.enabled !== false ? 'Exclude from calc' : 'Include in calc'}
-											use:enterToggle
 										>
 											<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 												<rect x="4" y="2" width="16" height="20" rx="2"/>
@@ -1135,7 +1132,6 @@
 					onclick={(e) => { e.stopPropagation(); zonesLayerVisible = !zonesLayerVisible; }}
 					aria-label={zonesLayerVisible ? 'Hide all zones' : 'Show all zones'}
 					title={zonesLayerVisible ? 'Hide all zones' : 'Show all zones'}
-					use:enterToggle
 				>
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -1191,7 +1187,6 @@
 												onclick={(e) => { e.stopPropagation(); toggleZoneVisibility(zone.id); }}
 												aria-label={zoneEyeActive ? `Hide ${zone.name || 'zone'}` : `Show ${zone.name || 'zone'}`}
 												title={zoneEyeActive ? 'Hide' : 'Show'}
-												use:enterToggle
 											>
 												<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 													{#if zoneEyeActive}
@@ -1211,7 +1206,6 @@
 												onclick={(e) => { e.stopPropagation(); project.updateZone(zone.id, { enabled: !(zone.enabled !== false) }); }}
 												aria-label={zone.enabled !== false ? `Exclude ${zone.name || 'zone'} from calculations` : `Include ${zone.name || 'zone'} in calculations`}
 												title={zone.enabled !== false ? 'Exclude from calc' : 'Include in calc'}
-												use:enterToggle
 											>
 												<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 													<rect x="4" y="2" width="16" height="20" rx="2"/>
@@ -1314,7 +1308,6 @@
 												onclick={(e) => { e.stopPropagation(); toggleZoneVisibility(zone.id); }}
 												aria-label={zoneEyeActive ? `Hide ${zone.name || 'zone'}` : `Show ${zone.name || 'zone'}`}
 												title={zoneEyeActive ? 'Hide' : 'Show'}
-												use:enterToggle
 											>
 												<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 													{#if zoneEyeActive}
@@ -1334,7 +1327,6 @@
 												onclick={(e) => { e.stopPropagation(); project.updateZone(zone.id, { enabled: !(zone.enabled !== false) }); }}
 												aria-label={zone.enabled !== false ? `Exclude ${zone.name || 'zone'} from calculations` : `Include ${zone.name || 'zone'} in calculations`}
 												title={zone.enabled !== false ? 'Exclude from calc' : 'Include in calc'}
-												use:enterToggle
 											>
 												<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 													<rect x="4" y="2" width="16" height="20" rx="2"/>

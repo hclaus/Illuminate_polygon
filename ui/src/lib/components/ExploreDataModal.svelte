@@ -36,6 +36,7 @@
 	let { fluence, wavelength, roomX, roomY, roomZ, airChanges, onclose, prefetchedData, zoneOptions }: Props = $props();
 
 	// Active fluence tracks the currently selected zone's fluence
+	// svelte-ignore state_referenced_locally
 	let activeFluence = $state<number | undefined>(fluence);
 
 	// Compute room volume in m³ (all values always in meters)
@@ -63,6 +64,7 @@
 	// Current filter values
 	let selectedMediums = $state<string[]>(getInitialMediums());
 	let selectedCategories = $state<string[]>([]);
+	// svelte-ignore state_referenced_locally
 	let selectedWavelengths = $state<number[]>(wavelength ? [wavelength] : []);
 	let speciesSearch = $state('');
 	let conditionSearch = $state('');
@@ -72,6 +74,7 @@
 	let cadrUnit = $state<'lps' | 'cfm'>($userSettings.units === 'feet' ? 'cfm' : 'lps');
 
 	// Table sort state
+	// svelte-ignore state_referenced_locally
 	let sortColumn = $state<keyof EfficacyRow>(fluence ? 'each_uv' : 'k1');
 	let sortAscending = $state(false);
 

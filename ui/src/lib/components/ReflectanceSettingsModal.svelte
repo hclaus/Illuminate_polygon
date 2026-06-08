@@ -31,8 +31,8 @@
 				newSpacings[name] = { x: round3(info.x_spacing), y: round3(info.y_spacing) };
 			}
 			project.updateRoom({
-				reflectance_num_points: newNumPoints as SurfaceNumPointsAll,
-				reflectance_spacings: newSpacings as SurfaceSpacings,
+				reflectance_num_points: newNumPoints as unknown as SurfaceNumPointsAll,
+				reflectance_spacings: newSpacings as unknown as SurfaceSpacings,
 			});
 		} catch (e) {
 			// If backend fetch fails, keep using current store values

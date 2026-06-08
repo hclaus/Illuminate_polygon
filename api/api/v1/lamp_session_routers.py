@@ -31,7 +31,7 @@ try:
 except ImportError:
     Delaunay = None
 
-from .utils import fig_to_base64, get_theme_colors, apply_theme
+from .utils import fig_to_base64, get_theme_colors, apply_theme, matplotlib_lock
 from .session_helpers import (
     InitializedSessionDep,
     _log_and_raise,
@@ -1065,24 +1065,26 @@ def get_session_lamp_plots(
             def _gen_photometric(target_dpi):
                 fig = None
                 try:
-                    result = lamp.plot_ies()
-                    fig = result[0] if isinstance(result, tuple) else result
-                    apply_theme(fig, theme, grid=True)
-                    if is_dark:
-                        for ax in fig.axes:
-                            for line in ax.get_lines():
-                                orig = line.get_color()
-                                if orig in dark_line_remap:
-                                    line.set_color(dark_line_remap[orig])
-                    return fig_to_base64(
-                        fig, dpi=target_dpi, facecolor=bg_color,
-                        bbox_inches='tight', pad_inches=0.1)
+                    with matplotlib_lock:
+                        result = lamp.plot_ies()
+                        fig = result[0] if isinstance(result, tuple) else result
+                        apply_theme(fig, theme, grid=True)
+                        if is_dark:
+                            for ax in fig.axes:
+                                for line in ax.get_lines():
+                                    orig = line.get_color()
+                                    if orig in dark_line_remap:
+                                        line.set_color(dark_line_remap[orig])
+                        return fig_to_base64(
+                            fig, dpi=target_dpi, facecolor=bg_color,
+                            bbox_inches='tight', pad_inches=0.1)
                 except Exception as e:
                     logger.warning(f"Failed to generate photometric plot: {e}")
                     return None
                 finally:
-                    if fig is not None:
-                        plt.close(fig)
+                    with matplotlib_lock:
+                        if fig is not None:
+                            plt.close(fig)
 
             photometric_plot_base64 = _gen_photometric(dpi)
             if include_hires:
@@ -1099,17 +1101,19 @@ def get_session_lamp_plots(
             def _gen_spectrum(scale, target_dpi):
                 fig = None
                 try:
-                    result = lamp.spectrum.plot(weights=True, yscale=scale)
-                    fig = result[0] if isinstance(result, tuple) else result
-                    apply_theme(fig, theme, grid=True)
-                    return fig_to_base64(fig, dpi=target_dpi, facecolor=bg_color,
-                                        bbox_inches='tight', pad_inches=0.1)
+                    with matplotlib_lock:
+                        result = lamp.spectrum.plot(weights=True, yscale=scale)
+                        fig = result[0] if isinstance(result, tuple) else result
+                        apply_theme(fig, theme, grid=True)
+                        return fig_to_base64(fig, dpi=target_dpi, facecolor=bg_color,
+                                             bbox_inches='tight', pad_inches=0.1)
                 except Exception as e:
                     logger.warning(f"Failed to generate spectrum plot ({scale}): {e}")
                     return None
                 finally:
-                    if fig is not None:
-                        plt.close(fig)
+                    with matplotlib_lock:
+                        if fig is not None:
+                            plt.close(fig)
 
             spectrum_linear_plot_base64 = _gen_spectrum("linear", dpi)
             spectrum_log_plot_base64 = _gen_spectrum("log", dpi)
@@ -1233,16 +1237,17 @@ def get_session_lamp_surface_plot(
         bg_color = colors['bg_color']
 
         # Generate surface plot
-        result = lamp.plot_surface(fig_width=6)
-        fig = result[0] if isinstance(result, tuple) else result
+        with matplotlib_lock:
+            result = lamp.plot_surface(fig_width=6)
+            fig = result[0] if isinstance(result, tuple) else result
 
-        # Add more space between the two subplots
-        fig.subplots_adjust(wspace=0.4)
+            # Add more space between the two subplots
+            fig.subplots_adjust(wspace=0.4)
 
-        # Apply theme colors
-        apply_theme(fig, theme)
+            # Apply theme colors
+            apply_theme(fig, theme)
 
-        plot_base64 = fig_to_base64(fig, dpi=dpi, facecolor=bg_color)
+            plot_base64 = fig_to_base64(fig, dpi=dpi, facecolor=bg_color)
 
         return SurfacePlotResponse(
             plot_base64=plot_base64,
@@ -1279,23 +1284,24 @@ def get_session_lamp_grid_points_plot(
         bg_color = colors['bg_color']
 
         # Generate grid points plot - same size as intensity map for alignment
-        fig, ax = plt.subplots(figsize=(4, 3))
-        try:
-            lamp.surface.plot_surface_points(fig=fig, ax=ax, title="")
+        with matplotlib_lock:
+            fig, ax = plt.subplots(figsize=(4, 3))
+            try:
+                lamp.surface.plot_surface_points(fig=fig, ax=ax, title="")
 
-            # Set axes position to match intensity map plot (leaving space on right for colorbar alignment)
-            # Intensity map has: main plot 0.15-0.80, colorbar 0.82-0.85
-            # So we position grid points the same, with empty space where colorbar would be
-            ax.set_position([0.18, 0.15, 0.60, 0.80])
+                # Set axes position to match intensity map plot (leaving space on right for colorbar alignment)
+                # Intensity map has: main plot 0.15-0.80, colorbar 0.82-0.85
+                # So we position grid points the same, with empty space where colorbar would be
+                ax.set_position([0.18, 0.15, 0.60, 0.80])
 
-            # Apply theme colors
-            apply_theme(fig, theme)
+                # Apply theme colors
+                apply_theme(fig, theme)
 
-            plot_base64 = fig_to_base64(fig, dpi=dpi, facecolor=bg_color)
+                plot_base64 = fig_to_base64(fig, dpi=dpi, facecolor=bg_color)
 
-            return SimplePlotResponse(plot_base64=plot_base64)
-        finally:
-            plt.close(fig)
+                return SimplePlotResponse(plot_base64=plot_base64)
+            finally:
+                plt.close(fig)
 
     except HTTPException:
         raise
@@ -1327,26 +1333,27 @@ def get_session_lamp_intensity_map_plot(
         bg_color = colors['bg_color']
 
         # Generate intensity map plot - same size as grid points for alignment
-        fig, ax = plt.subplots(figsize=(4, 3))
-        try:
-            lamp.surface.plot_intensity_map(fig=fig, ax=ax, title="", show_cbar=True)
+        with matplotlib_lock:
+            fig, ax = plt.subplots(figsize=(4, 3))
+            try:
+                lamp.surface.plot_intensity_map(fig=fig, ax=ax, title="", show_cbar=True)
 
-            # Set main axes position to match grid points plot exactly
-            ax.set_position([0.18, 0.15, 0.60, 0.80])
+                # Set main axes position to match grid points plot exactly
+                ax.set_position([0.18, 0.15, 0.60, 0.80])
 
-            # Position colorbar to the right of the main axes
-            if len(fig.axes) > 1:
-                cbar_ax = fig.axes[1]
-                cbar_ax.set_position([0.80, 0.15, 0.03, 0.80])
+                # Position colorbar to the right of the main axes
+                if len(fig.axes) > 1:
+                    cbar_ax = fig.axes[1]
+                    cbar_ax.set_position([0.80, 0.15, 0.03, 0.80])
 
-            # Apply theme colors
-            apply_theme(fig, theme)
+                # Apply theme colors
+                apply_theme(fig, theme)
 
-            plot_base64 = fig_to_base64(fig, dpi=dpi, facecolor=bg_color)
+                plot_base64 = fig_to_base64(fig, dpi=dpi, facecolor=bg_color)
 
-            return SimplePlotResponse(plot_base64=plot_base64)
-        finally:
-            plt.close(fig)
+                return SimplePlotResponse(plot_base64=plot_base64)
+            finally:
+                plt.close(fig)
 
     except HTTPException:
         raise

@@ -30,6 +30,7 @@
 	let alertDialog = $state<{ title: string; message: string } | null>(null);
 
 	// Initialize displayMode from zone.display_mode when opening
+	// svelte-ignore state_referenced_locally
 	let displayMode = $state<'heatmap' | 'numeric' | 'contour'>(
 		zone.display_mode === 'contours' ? 'contour' :
 		zone.display_mode === 'numeric' ? 'numeric' : 'heatmap'

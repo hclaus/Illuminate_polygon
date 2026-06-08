@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll, afterAll } from 'vitest';
 import { get } from 'svelte/store';
+import { defaultRoom } from '$lib/types/project';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 
@@ -195,22 +196,15 @@ describe('project store', () => {
       const savedProject = {
         version: '1.0',
         name: 'loaded project',
-        room: {
+        room: defaultRoom({
           x: 10, y: 10, z: 3,
           standard: 'ANSI IES RP 27.1-22 (ACGIH Limits)' as const,
           precision: 2,
           enable_reflectance: false,
-          reflectances: { floor: 0.1, ceiling: 0.1, north: 0.1, south: 0.1, east: 0.1, west: 0.1 },
-          reflectance_spacings: { floor: { x: 0.5, y: 0.5 }, ceiling: { x: 0.5, y: 0.5 }, north: { x: 0.5, y: 0.5 }, south: { x: 0.5, y: 0.5 }, east: { x: 0.5, y: 0.5 }, west: { x: 0.5, y: 0.5 } },
-          reflectance_num_points: { floor: { x: 10, y: 10 }, ceiling: { x: 10, y: 10 }, north: { x: 10, y: 10 }, south: { x: 10, y: 10 }, east: { x: 10, y: 10 }, west: { x: 10, y: 10 } },
-          reflectance_resolution_mode: 'spacing' as const,
-          reflectance_max_num_passes: 100,
-          reflectance_threshold: 0.02,
           air_changes: 2,
-          ozone_decay_constant: 4.6,
           colormap: 'plasma',
           useStandardZones: true,
-        },
+        }),
         lamps: [],
         zones: [],
         lastModified: new Date().toISOString(),
@@ -258,11 +252,11 @@ describe('project store', () => {
     it('updates room standard', async () => {
       const { project } = await import('./project');
 
-      project.updateRoom({ standard: 'ICNIRP' });
+      project.updateRoom({ standard: 'IEC 62471-6:2022 (ICNIRP Limits)' });
       vi.advanceTimersByTime(200);
 
       const p = get(project);
-      expect(p.room.standard).toBe('ICNIRP');
+      expect(p.room.standard).toBe('IEC 62471-6:2022 (ICNIRP Limits)');
     });
 
     it('updates multiple room properties', async () => {
@@ -298,6 +292,7 @@ describe('project store', () => {
       const id = await project.addLamp({
         lamp_type: 'krcl_222',
         x: 2, y: 2, z: 2.5,
+        angle: 0,
         aimx: 2, aimy: 2, aimz: 0,
         scaling_factor: 1,
         enabled: true,
@@ -315,6 +310,7 @@ describe('project store', () => {
       const id = await project.addLamp({
         lamp_type: 'krcl_222',
         x: 2, y: 2, z: 2.5,
+        angle: 0,
         aimx: 2, aimy: 2, aimz: 0,
         scaling_factor: 1,
         enabled: true,
@@ -334,6 +330,7 @@ describe('project store', () => {
       const id = await project.addLamp({
         lamp_type: 'krcl_222',
         x: 2, y: 2, z: 2.5,
+        angle: 0,
         aimx: 2, aimy: 2, aimz: 0,
         scaling_factor: 1,
         enabled: true,
@@ -352,6 +349,7 @@ describe('project store', () => {
       const id1 = await project.addLamp({
         lamp_type: 'krcl_222',
         x: 1, y: 1, z: 2.5,
+        angle: 0,
         aimx: 1, aimy: 1, aimz: 0,
         scaling_factor: 1,
         enabled: true,
@@ -360,6 +358,7 @@ describe('project store', () => {
       const id2 = await project.addLamp({
         lamp_type: 'krcl_222',
         x: 3, y: 3, z: 2.5,
+        angle: 0,
         aimx: 3, aimy: 3, aimz: 0,
         scaling_factor: 1,
         enabled: true,
@@ -493,6 +492,7 @@ describe('project store', () => {
       await project.addLamp({
         lamp_type: 'krcl_222',
         x: 4, y: 3, z: 2.5,
+        angle: 0,
         aimx: 4, aimy: 3, aimz: 0,
         scaling_factor: 1,
         enabled: true,
@@ -514,6 +514,7 @@ describe('project store', () => {
       await project.addLamp({
         lamp_type: 'krcl_222',
         x: 10, y: 10, z: 2.5,
+        angle: 0,
         aimx: 10, aimy: 10, aimz: 0,
         scaling_factor: 1,
         enabled: true,
@@ -690,6 +691,10 @@ describe('project store', () => {
           warnings: [],
           max_skin_dose: 2,
           max_eye_dose: 1.5,
+          is_skin_compliant: true,
+          is_eye_compliant: true,
+          skin_near_limit: false,
+          eye_near_limit: false,
         },
       });
 

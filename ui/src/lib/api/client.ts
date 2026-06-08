@@ -964,6 +964,7 @@ export interface SessionRoomConfig {
   x: number;
   y: number;
   z: number;
+  units: 'meters' | 'feet';
   precision: number;
   standard: 'ANSI IES RP 27.1-22 (ACGIH Limits)' | 'UL8802 (ACGIH Limits)' | 'IEC 62471-6:2022 (ICNIRP Limits)';
   enable_reflectance: boolean;
@@ -996,6 +997,7 @@ export interface SessionLampInput {
   orientation?: number;
   scaling_factor: number;
   enabled: boolean;
+  visible?: boolean;
 }
 
 export interface SessionZoneInput {
@@ -1003,6 +1005,7 @@ export interface SessionZoneInput {
   name?: string;
   type: 'plane' | 'volume' | 'point';
   enabled: boolean;
+  visible?: boolean;
   isStandard: boolean;
   dose: boolean;
   hours: number;
@@ -1273,6 +1276,7 @@ export interface SessionZoneState {
   name?: string;
   type: 'plane' | 'volume' | 'point';
   enabled: boolean;
+  visible?: boolean;
   is_standard?: boolean;
   num_x?: number;
   num_y?: number;
@@ -1418,9 +1422,18 @@ export interface SetUnitsZoneCoords {
   y_max?: number | null;
   z_min?: number | null;
   z_max?: number | null;
+  num_x?: number | null;
+  num_y?: number | null;
+  num_z?: number | null;
   x_spacing?: number | null;
   y_spacing?: number | null;
   z_spacing?: number | null;
+  x?: number | null;
+  y?: number | null;
+  z?: number | null;
+  aim_x?: number | null;
+  aim_y?: number | null;
+  aim_z?: number | null;
 }
 
 export interface SetUnitsResponse {
@@ -1430,6 +1443,7 @@ export interface SetUnitsResponse {
   lamps: Record<string, SetUnitsLampCoords>;
   zones: Record<string, SetUnitsZoneCoords>;
   reflectance_spacings?: Record<string, { x: number; y: number }> | null;
+  reflectance_num_points?: Record<string, { x: number; y: number }> | null;
   state_hashes?: StateHashes;
 }
 

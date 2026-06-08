@@ -31,16 +31,27 @@
 	let error = $state<string | null>(null);
 
 	// Local state for editing - initialize from lamp
+	// svelte-ignore state_referenced_locally
 	let lamp_type = $state<LampType>(lamp.lamp_type || 'krcl_222');
+	// svelte-ignore state_referenced_locally
 	let preset_id = $state(lamp.preset_id || '');
+	// svelte-ignore state_referenced_locally
 	let x = $state(lamp.x);
+	// svelte-ignore state_referenced_locally
 	let y = $state(lamp.y);
+	// svelte-ignore state_referenced_locally
 	let z = $state(lamp.z);
+	// svelte-ignore state_referenced_locally
 	let angle = $state(lamp.angle ?? 0);
+	// svelte-ignore state_referenced_locally
 	let show_label = $state(lamp.show_label ?? false);
+	// svelte-ignore state_referenced_locally
 	let show_photometric_web = $state(lamp.show_photometric_web ?? true);
+	// svelte-ignore state_referenced_locally
 	let aimx = $state(lamp.aimx);
+	// svelte-ignore state_referenced_locally
 	let aimy = $state(lamp.aimy);
+	// svelte-ignore state_referenced_locally
 	let aimz = $state(lamp.aimz);
 
 	// Sync local state when lamp prop changes (e.g. unit conversion updates store values)
@@ -61,19 +72,26 @@
 	// Track previous position to detect user-driven position changes.
 	// During placement, update prevX/prevY/prevZ BEFORE x/y/z so the
 	// aim-translation $effect sees dx=0 and skips the translation.
+	// svelte-ignore state_referenced_locally
 	let prevX = $state(lamp.x);
+	// svelte-ignore state_referenced_locally
 	let prevY = $state(lamp.y);
+	// svelte-ignore state_referenced_locally
 	let prevZ = $state(lamp.z);
 
 	// Tilt/orientation mode state
 	let useTiltMode = $state(false);
+	// svelte-ignore state_referenced_locally
 	let tilt = $state(lamp.tilt ?? 0);
+	// svelte-ignore state_referenced_locally
 	let orientation = $state(lamp.orientation ?? 0);
 	// True when tilt/orientation changed via direct user edit (not placement or aim recomputation)
 	let tiltOrientationEdited = false;
 
 	// "Other" lamp type state
+	// svelte-ignore state_referenced_locally
 	let wavelength = $state(lamp.wavelength ?? 280);
+	// svelte-ignore state_referenced_locally
 	let wavelengthFromSpectrum = $state(lamp.wavelength_from_spectrum ?? false);
 
 	// File uploads for custom lamps
@@ -81,8 +99,8 @@
 	let spectrumFile: File | null = $state(null);
 	let spectrumUploadError: string | null = $state(null);
 	let spectrumColumnIndex: number = $state(0);
-	let iesFileInput: HTMLInputElement;
-	let spectrumFileInput: HTMLInputElement;
+	let iesFileInput = $state<HTMLInputElement>();
+	let spectrumFileInput = $state<HTMLInputElement>();
 
 	// Multi-column spectrum picker state
 	let showColumnPicker = $state(false);
@@ -93,10 +111,13 @@
 
 	// File store selection state
 	// For 222nm: effective dropdown value that may be "custom_file:{id}" or a preset id
+	// svelte-ignore state_referenced_locally
 	let effectivePresetId = $state(lamp.ies_file_id ? `custom_file:${lamp.ies_file_id}` : (lamp.preset_id || ''));
 	// For lp_254/other: selected IES file from the shared pool
+	// svelte-ignore state_referenced_locally
 	let selectedIesFileId = $state<string>(lamp.ies_file_id || '');
 	// For other: selected spectrum file from the shared pool
+	// svelte-ignore state_referenced_locally
 	let selectedSpectrumFileId = $state<string>(lamp.spectrum_file_id || '');
 
 	// Modal states
@@ -247,6 +268,7 @@
 	// $effect from re-sending it to syncUpdateLamp (which would trigger a duplicate upload
 	// and discard the in-flight prefetch).
 	// On failure (has_spectrum_file=false): show error and clear.
+	// svelte-ignore state_referenced_locally
 	let prevPendingSpectrum = lamp.pending_spectrum_file;
 	$effect(() => {
 		const pending = lamp.pending_spectrum_file;
@@ -267,6 +289,7 @@
 
 	// Detect IES upload completion: clear local iesFile on success to prevent
 	// the auto-save $effect from re-sending it as pending_ies_file.
+	// svelte-ignore state_referenced_locally
 	let prevPendingIes = lamp.pending_ies_file;
 	$effect(() => {
 		const pending = lamp.pending_ies_file;
@@ -607,7 +630,7 @@
 	async function handlePresetOrFileSelect(value: string) {
 		if (value === '__upload_ies__') {
 			// Trigger file picker for new IES upload
-			iesFileInput.click();
+			iesFileInput?.click();
 			// Reset dropdown to previous selection
 			effectivePresetId = lamp.ies_file_id ? `custom_file:${lamp.ies_file_id}` : (lamp.preset_id || '');
 			return;
@@ -635,7 +658,7 @@
 
 	async function handleIesFileSelect(value: string) {
 		if (value === '__upload__') {
-			iesFileInput.click();
+			iesFileInput?.click();
 			selectedIesFileId = lamp.ies_file_id || '';
 			return;
 		}
@@ -650,7 +673,7 @@
 
 	async function handleSpectrumFileSelect(value: string) {
 		if (value === '__upload__') {
-			spectrumFileInput.click();
+			spectrumFileInput?.click();
 			selectedSpectrumFileId = lamp.spectrum_file_id || '';
 			return;
 		}
@@ -974,7 +997,7 @@
 						<div class="file-status success">
 							{lamp.ies_filename ? (lamp.ies_filename.endsWith('.ies') ? lamp.ies_filename : `${lamp.ies_filename}.ies`) : 'IES file uploaded'}
 							<span class="file-status-actions">
-								<button type="button" class="file-icon-btn" onclick={() => iesFileInput.click()} title="Replace IES file">&#x21c6;</button>
+								<button type="button" class="file-icon-btn" onclick={() => iesFileInput?.click()} title="Replace IES file">&#x21c6;</button>
 								<button type="button" class="file-icon-btn danger" onclick={handleRemoveIes} title="Remove IES file">&times;</button>
 							</span>
 						</div>
@@ -991,7 +1014,7 @@
 								<option value="__upload__">Upload new file...</option>
 							</select>
 						{:else}
-							<button type="button" class="secondary" onclick={() => iesFileInput.click()}>
+							<button type="button" class="secondary" onclick={() => iesFileInput?.click()}>
 								Select IES File
 							</button>
 						{/if}
@@ -1017,7 +1040,7 @@
 							<div class="file-status success">
 								{spectrumFile?.name || lamp.spectrum_filename || 'Spectrum file uploaded'}
 								<span class="file-status-actions">
-									<button type="button" class="file-icon-btn" onclick={() => spectrumFileInput.click()} title="Replace spectrum file">&#x21c6;</button>
+									<button type="button" class="file-icon-btn" onclick={() => spectrumFileInput?.click()} title="Replace spectrum file">&#x21c6;</button>
 									<button type="button" class="file-icon-btn danger" onclick={handleRemoveSpectrum} title="Remove spectrum file">&times;</button>
 								</span>
 							</div>
@@ -1039,7 +1062,7 @@
 									<option value="__upload__">Upload new file...</option>
 								</select>
 							{:else}
-								<button type="button" class="secondary" onclick={() => spectrumFileInput.click()}>
+								<button type="button" class="secondary" onclick={() => spectrumFileInput?.click()}>
 									Select Spectrum File
 								</button>
 							{/if}
@@ -1265,13 +1288,13 @@
 		{#snippet body()}
 			<div class="column-picker-body">
 				<p class="column-picker-info">
-					This file contains {parsedSpectrum.num_series} data columns. Select which one to use as the lamp spectrum.
+					This file contains {parsedSpectrum!.num_series} data columns. Select which one to use as the lamp spectrum.
 				</p>
 
 				<div class="column-picker-chart">
 					<SpectrumChart
-						wavelengths={parsedSpectrum.wavelengths}
-						series={parsedSpectrum.series.map((s, i) => ({
+						wavelengths={parsedSpectrum!.wavelengths}
+						series={parsedSpectrum!.series.map((s, i) => ({
 							label: s.label,
 							intensities: s.intensities,
 							color: i === selectedColumnIndex ? '#3b82f6' : '#4b5563',
@@ -1283,7 +1306,7 @@
 				</div>
 
 				<div class="column-picker-list">
-					{#each parsedSpectrum.series as s, i}
+					{#each parsedSpectrum!.series as s, i}
 						<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 						<div
 							class="column-option"
@@ -1367,12 +1390,7 @@
 		flex: 1;
 	}
 
-	.label-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--spacing-sm);
-	}
+
 
 	.section-label {
 		font-weight: 600;
@@ -1472,10 +1490,7 @@
 		color: var(--color-info);
 	}
 
-	.file-status.muted {
-		background: color-mix(in srgb, var(--color-text-muted) 10%, transparent);
-		color: var(--color-text-muted);
-	}
+
 
 	.required {
 		color: var(--color-error);
@@ -1499,8 +1514,7 @@
 		gap: var(--spacing-xs);
 	}
 
-	.select-with-button select,
-	.select-with-button input {
+	.select-with-button select {
 		flex: 1;
 		min-width: 0;
 	}

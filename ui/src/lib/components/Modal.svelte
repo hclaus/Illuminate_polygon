@@ -47,7 +47,8 @@
 	}: Props = $props();
 
 	// Unique ID for dock registration (use stable dockId if provided)
-	const modalId = dockId ?? `modal-${Math.random().toString(36).slice(2, 9)}`;
+	const stableFallbackId = `modal-${Math.random().toString(36).slice(2, 9)}`;
+	const modalId = $derived(dockId ?? stableFallbackId);
 
 	let minimized = $state(false);
 	let offsetX = $state(0);
@@ -57,7 +58,7 @@
 	let dragStartY = 0;
 	let dragStartOffsetX = 0;
 	let dragStartOffsetY = 0;
-	let contentEl: HTMLDivElement;
+	let contentEl = $state<HTMLDivElement>();
 
 	let mouseDownTarget: EventTarget | null = null;
 

@@ -17,7 +17,7 @@ from guv_calcs import WHOLE_ROOM_FLUENCE, EYE_LIMITS, SKIN_LIMITS
 from guv_calcs.calc_zone import CalcPlane, CalcVol, CalcPoint
 from guv_calcs.plane_calc_mode import PlaneCalcMode
 
-from .utils import get_theme_colors, apply_theme
+from .utils import get_theme_colors, apply_theme, matplotlib_lock
 
 from .session_helpers import (
     InitializedSessionDep,
@@ -434,48 +434,49 @@ def get_zone_plot(
         # Plane zones use Matplotlib
         style = 'default' if theme == 'light' else 'dark_background'
         fig = None
-        try:
-            with plt.style.context(style):
-                if getattr(zone, 'display_mode', None) == 'contours':
-                    from .session_helpers import generate_contour_plot
-                    fig, ax = generate_contour_plot(
-                        zone,
-                        theme=theme,
-                        dpi=dpi,
-                        units=str(session.room.units)
-                    )
-                else:
-                    # Generate the zone plot (returns tuple of fig, ax)
-                    fig, ax = zone.plot()
+        with matplotlib_lock:
+            try:
+                with plt.style.context(style):
+                    if getattr(zone, 'display_mode', None) == 'contours':
+                        from .session_helpers import generate_contour_plot
+                        fig, ax = generate_contour_plot(
+                            zone,
+                            theme=theme,
+                            dpi=dpi,
+                            units=str(session.room.units)
+                        )
+                    else:
+                        # Generate the zone plot (returns tuple of fig, ax)
+                        fig, ax = zone.plot()
 
-                # Set figure size
-                fig.set_size_inches(10, 8)
+                    # Set figure size
+                    fig.set_size_inches(10, 8)
 
-                # Apply theme
-                apply_theme(fig, theme)
-                for ax in fig.get_axes():
-                    ax.tick_params(labelsize=12)
-                    ax.xaxis.label.set_fontsize(14)
-                    ax.yaxis.label.set_fontsize(14)
-                    title = ax.get_title()
-                    if title:
-                        ax.set_title(title, fontsize=16)
+                    # Apply theme
+                    apply_theme(fig, theme)
+                    for ax in fig.get_axes():
+                        ax.tick_params(labelsize=12)
+                        ax.xaxis.label.set_fontsize(14)
+                        ax.yaxis.label.set_fontsize(14)
+                        title = ax.get_title()
+                        if title:
+                            ax.set_title(title, fontsize=16)
 
-                # Convert to base64
-                buf = io.BytesIO()
-                fig.savefig(buf, format='png', dpi=dpi, bbox_inches='tight',
-                            facecolor=bg_color, edgecolor='none')
-                buf.seek(0)
+                    # Convert to base64
+                    buf = io.BytesIO()
+                    fig.savefig(buf, format='png', dpi=dpi, bbox_inches='tight',
+                                facecolor=bg_color, edgecolor='none')
+                    buf.seek(0)
 
-            image_base64 = base64.b64encode(buf.read()).decode('utf-8')
+                image_base64 = base64.b64encode(buf.read()).decode('utf-8')
 
-            return {
-                "image_base64": image_base64,
-                "content_type": "image/png"
-            }
-        finally:
-            if fig is not None:
-                plt.close(fig)
+                return {
+                    "image_base64": image_base64,
+                    "content_type": "image/png"
+                }
+            finally:
+                if fig is not None:
+                    plt.close(fig)
 
     except Exception as e:
         _log_and_raise("Failed to generate zone plot", e)

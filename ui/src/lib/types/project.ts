@@ -78,6 +78,7 @@ export interface LampInstance {
   x: number;
   y: number;
   z: number;
+  angle: number;
   aimx: number;
   aimy: number;
   aimz: number;
@@ -256,7 +257,7 @@ export interface LampComplianceResult {
 export interface SafetyWarning {
   level: WarningLevel;
   message: string;
-  lamp_id?: string;
+  lamp_id?: string | null;
 }
 
 export interface CheckLampsResult {
@@ -269,8 +270,8 @@ export interface CheckLampsResult {
   is_eye_compliant: boolean;
   skin_near_limit: boolean;
   eye_near_limit: boolean;
-  skin_dimming_for_compliance?: number;
-  eye_dimming_for_compliance?: number;
+  skin_dimming_for_compliance?: number | null;
+  eye_dimming_for_compliance?: number | null;
 }
 
 // State hashes from backend (room.get_calc_state() / room.get_update_state())
@@ -470,9 +471,9 @@ export const ROOM_DEFAULTS = {
 } as const;
 
 export function defaultSurfaceSpacings(
-  roomX = ROOM_DEFAULTS.x,
-  roomY = ROOM_DEFAULTS.y,
-  roomZ = ROOM_DEFAULTS.z,
+  roomX: number = ROOM_DEFAULTS.x,
+  roomY: number = ROOM_DEFAULTS.y,
+  roomZ: number = ROOM_DEFAULTS.z,
 ): SurfaceSpacings {
   // Derive spacings from room dimensions / 10 to match guv_calcs 10x10 default
   const n = ROOM_DEFAULTS.reflectance_num_points;
@@ -605,6 +606,8 @@ export interface ZoneOverrides {
   calc_mode?: PlaneCalcMode;
   dose?: boolean;
   hours?: number;
+  minutes?: number;
+  seconds?: number;
 }
 
 export function defaultZone(room: RoomConfig, zoneCount: number, overrides?: ZoneOverrides): Omit<CalcZone, 'id'> {
@@ -621,6 +624,8 @@ export function defaultZone(room: RoomConfig, zoneCount: number, overrides?: Zon
     visible: true,
     dose: overrides?.dose ?? false,
     hours: overrides?.hours ?? 8,
+    minutes: overrides?.minutes ?? 0,
+    seconds: overrides?.seconds ?? 0,
     offset: overrides?.offset ?? true,
     resolution_mode: 'num_points' as ResolutionMode,
     display_mode: (overrides?.display_mode ?? 'heatmap') as ZoneDisplayMode,

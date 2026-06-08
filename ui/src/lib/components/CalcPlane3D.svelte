@@ -647,7 +647,7 @@
 	<!-- None mode: no visualization -->
 {:else if zone.enabled !== false && hasValues && displayMode === 'heatmap' && surfaceGeometry}
 	<!-- Heatmap surface -->
-	<T.Mesh geometry={surfaceGeometry} renderOrder={1} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref) => { if (onclick) ref.cursor = 'pointer'; }}>
+	<T.Mesh geometry={surfaceGeometry} renderOrder={1} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref: any) => { if (onclick) ref.cursor = 'pointer'; }}>
 		<T.MeshBasicMaterial
 			vertexColors
 			transparent
@@ -663,7 +663,7 @@
 		renderOrder={2}
 		onclick={onclick}
 		userData={{ clickType: 'zone', clickId: zone.id }}
-		oncreate={(ref) => { if (onclick) ref.cursor = 'pointer'; }}
+		oncreate={(ref: any) => { if (onclick) ref.cursor = 'pointer'; }}
 	>
 		<T.MeshBasicMaterial
 			map={valuesOverlay.texture}
@@ -674,7 +674,7 @@
 	</T.Mesh>
 {:else}
 	<!-- Shaped markers at grid positions (uncalculated, markers mode, or disabled) -->
-	<T is={markerMesh} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref) => { if (onclick) ref.cursor = 'pointer'; }} />
+	<T is={markerMesh} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref: any) => { if (onclick) ref.cursor = 'pointer'; }} />
 {/if}
 
 {#if normalArrow}

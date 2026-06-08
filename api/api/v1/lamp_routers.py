@@ -28,7 +28,7 @@ from guv_calcs.units import convert_units  # type: ignore
 from guv_calcs.safety import PhotStandard  # type: ignore
 from guv_calcs.lamp.lamp_configs import resolve_keyword  # type: ignore
 
-from .utils import fig_to_base64, get_theme_colors, apply_theme
+from .utils import fig_to_base64, get_theme_colors, apply_theme, matplotlib_lock
 from .session_schemas import TlvLimits
 
 try:
@@ -476,23 +476,25 @@ def _generate_photometric_plot(lamp, theme, dpi):
     is_dark = theme != 'light'
     fig = None
     try:
-        result = lamp.plot_ies()
-        fig = result[0] if isinstance(result, tuple) else result
-        apply_theme(fig, theme, grid=True)
-        if is_dark:
-            for ax in fig.axes:
-                for line in ax.get_lines():
-                    orig = line.get_color()
-                    if orig in DARK_LINE_REMAP:
-                        line.set_color(DARK_LINE_REMAP[orig])
-        return fig_to_base64(fig, dpi=dpi, facecolor=bg_color,
-                             bbox_inches='tight', pad_inches=0.1)
+        with matplotlib_lock:
+            result = lamp.plot_ies()
+            fig = result[0] if isinstance(result, tuple) else result
+            apply_theme(fig, theme, grid=True)
+            if is_dark:
+                for ax in fig.axes:
+                    for line in ax.get_lines():
+                        orig = line.get_color()
+                        if orig in DARK_LINE_REMAP:
+                            line.set_color(DARK_LINE_REMAP[orig])
+            return fig_to_base64(fig, dpi=dpi, facecolor=bg_color,
+                                 bbox_inches='tight', pad_inches=0.1)
     except Exception as e:
         logger.warning(f"Failed to generate photometric plot: {e}")
         return ""
     finally:
-        if fig is not None:
-            plt.close(fig)
+        with matplotlib_lock:
+            if fig is not None:
+                plt.close(fig)
 
 
 def _generate_spectrum_plot(lamp, scale, theme, dpi):
@@ -501,17 +503,19 @@ def _generate_spectrum_plot(lamp, scale, theme, dpi):
     bg_color = colors['bg_color']
     fig = None
     try:
-        result = lamp.spectrum.plot(weights=True, yscale=scale)
-        fig = result[0] if isinstance(result, tuple) else result
-        apply_theme(fig, theme, grid=True)
-        return fig_to_base64(fig, dpi=dpi, facecolor=bg_color,
-                             bbox_inches='tight', pad_inches=0.1)
+        with matplotlib_lock:
+            result = lamp.spectrum.plot(weights=True, yscale=scale)
+            fig = result[0] if isinstance(result, tuple) else result
+            apply_theme(fig, theme, grid=True)
+            return fig_to_base64(fig, dpi=dpi, facecolor=bg_color,
+                                 bbox_inches='tight', pad_inches=0.1)
     except Exception as e:
         logger.warning(f"Failed to generate spectrum plot ({scale}): {e}")
         return None
     finally:
-        if fig is not None:
-            plt.close(fig)
+        with matplotlib_lock:
+            if fig is not None:
+                plt.close(fig)
 
 
 @lru_cache(maxsize=128)

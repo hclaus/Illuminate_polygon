@@ -32,6 +32,7 @@ const mockLamp: LampInstance = {
   preset_id: 'beacon',
   name: 'Beacon',
   x: 2, y: 3, z: 2.5,
+  angle: 0.0,
   aimx: 2, aimy: 3, aimz: 0,
   scaling_factor: 1.0,
   enabled: true,

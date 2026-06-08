@@ -37,6 +37,7 @@
 	let { initialLampId, initialTab = 'info', room, onClose, onUpdate }: Props = $props();
 
 	// Lamp sidebar state
+	// svelte-ignore state_referenced_locally
 	let selectedLampId = $state(initialLampId);
 	const selectedLamp = $derived($lamps.find(l => l.id === selectedLampId));
 
@@ -48,6 +49,7 @@
 	const hasPhotometry = $derived(selectedLamp ? lampHasPhotometry(selectedLamp) : false);
 
 	// Setting tab state
+	// svelte-ignore state_referenced_locally
 	let activeTab = $state<'info' | 'scaling' | 'opening' | 'fixture'>(initialTab);
 
 	// Info tab props derived from selected lamp
@@ -741,10 +743,9 @@
 		overflow-y: auto;
 	}
 
-	/* Loading/error/no-photometry states */
+	/* Loading/error states */
 	.loading-state,
-	.error-state,
-	.no-photometry-state {
+	.error-state {
 		padding: var(--spacing-xl);
 		text-align: center;
 	}

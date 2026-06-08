@@ -198,7 +198,7 @@
 	const defaultTarget = $derived([roomDims.x / 2, roomDims.z / 2, -roomDims.y / 2] as [number, number, number]);
 
 	// Camera and controls refs for view snapping
-	let cameraRef = $state<THREE.PerspectiveCamera | THREE.OrthographicCamera | null>(null);
+	let cameraRef = $state<any>(null);
 	let controlsRef = $state<any>(null);
 
 	// Orthographic projection state (managed internally, exposed via callback)

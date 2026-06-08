@@ -259,6 +259,8 @@ describe('API Functions', () => {
           enable_reflectance: false,
           air_changes: 2,
           ozone_decay_constant: 4.6,
+          units: 'meters',
+          colormap: 'plasma',
         },
         lamps: [],
         zones: [],
@@ -287,6 +289,7 @@ describe('API Functions', () => {
         x: 2.5,
         y: 2.5,
         z: 2.9,
+        angle: 0,
         aimx: 2.5,
         aimy: 2.5,
         aimz: 0,
@@ -322,6 +325,8 @@ describe('API Functions', () => {
         isStandard: false,
         dose: false,
         hours: 8,
+        minutes: 0,
+        seconds: 0,
         height: 1.7,
       });
 

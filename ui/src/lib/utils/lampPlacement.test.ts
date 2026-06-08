@@ -11,29 +11,18 @@ import {
   type LampPlacement,
 } from './lampPlacement';
 import type { RoomConfig, LampInstance } from '$lib/types/project';
-import { defaultSurfaceSpacings, defaultSurfaceNumPoints, ROOM_DEFAULTS } from '$lib/types/project';
+import { defaultRoom, ROOM_DEFAULTS } from '$lib/types/project';
 
 // Helper to create a minimal room config for testing
-function createRoom(x: number = 5, y: number = 5, z: number = 3): RoomConfig {
-  const r = ROOM_DEFAULTS.reflectance;
-  return {
+function createRoom(x: number = 5, y: number = 5, z: number = 3, _units?: string): RoomConfig {
+  return defaultRoom({
     x,
     y,
     z,
     precision: 2,
-    standard: 'ANSI IES RP 27.1-22 (ACGIH Limits)',
     enable_reflectance: false,
-    reflectances: { floor: r, ceiling: r, north: r, south: r, east: r, west: r },
-    reflectance_spacings: defaultSurfaceSpacings(),
-    reflectance_num_points: defaultSurfaceNumPoints(x, y, z),
-    reflectance_resolution_mode: ROOM_DEFAULTS.reflectance_resolution_mode,
-    reflectance_max_num_passes: ROOM_DEFAULTS.reflectance_max_num_passes,
-    reflectance_threshold: ROOM_DEFAULTS.reflectance_threshold,
     air_changes: 2,
-    ozone_decay_constant: 4.6,
-    colormap: 'plasma',
-    useStandardZones: true,
-  };
+  });
 }
 
 // Helper to create a lamp at a position
@@ -44,6 +33,7 @@ function createLamp(x: number, y: number, z: number, id: string = 'lamp-1'): Lam
     x,
     y,
     z,
+    angle: 0,
     aimx: x,
     aimy: y,
     aimz: 0,

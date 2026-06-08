@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import EfficacySwarmPlot from './EfficacySwarmPlot.svelte';
 
@@ -7,7 +7,7 @@ describe('EfficacySwarmPlot', () => {
     {
       species: 'E. coli',
       strain: '',
-      wavelength_nm: 254,
+      wavelength: 254,
       k1: 0.5,
       k2: 0.1,
       category: 'Bacteria',
@@ -15,6 +15,9 @@ describe('EfficacySwarmPlot', () => {
       condition: '',
       reference: '',
       link: '',
+      resistant_fraction: 0.0,
+      each_uv: 10,
+      seconds_to_99: 10,
     },
   ];
 
@@ -24,7 +27,10 @@ describe('EfficacySwarmPlot', () => {
     dataCategories: ['Bacteria'],
     roomVolumeM3: 50,
     airChanges: 6,
-    medium: 'Aerosol',
+    fluence: 10,
+    mediums: ['Aerosol'],
+    cadrUnit: 'cfm' as const,
+    onCadrUnitChange: vi.fn(),
   };
 
   it('renders SVG element with data', () => {

@@ -61,7 +61,7 @@
 	let savedTarget = $state<[number, number, number] | null>(null);
 
 	// View snap state
-	let cameraRef = $state<THREE.PerspectiveCamera | THREE.OrthographicCamera | null>(null);
+	let cameraRef = $state<any>(null);
 	let controlsRef = $state<any>(null);
 	let activeView = $state<ViewPreset | null>(null);
 	let animationId: number | null = null;

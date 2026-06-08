@@ -16,7 +16,7 @@
 
 	// Billboard: make all tick labels face the camera
 	const { camera } = useThrelte();
-	let labelsGroup = $state<THREE.Group | null>(null);
+	let labelsGroup = $state<THREE.Group | undefined>(undefined);
 
 	useTask(() => {
 		if (!labelsGroup || !camera.current) return;

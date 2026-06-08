@@ -389,7 +389,7 @@
 	<!-- Isosurface shells when calculated and in heatmap mode -->
 	{#each isosurfaces as iso, index}
 		{@const opacity = opacityLevels[index] ?? 0.15}
-		<T.Mesh geometry={iso.geometry} renderOrder={1} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref) => { if (onclick) ref.cursor = 'pointer'; }}>
+		<T.Mesh geometry={iso.geometry} renderOrder={1} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref: any) => { if (onclick) ref.cursor = 'pointer'; }}>
 			<T.MeshBasicMaterial
 				color={isoColors[index]}
 				transparent
@@ -434,7 +434,7 @@
 	</T.LineSegments>
 {:else if zone.enabled !== false && (displayMode === 'markers' || (displayMode === 'numeric' && !numericGroup)) && markerMesh}
 	<!-- Marker spheres at grid positions (markers mode, or numeric fallback when sprites unavailable) -->
-	<T is={markerMesh} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref) => { if (onclick) ref.cursor = 'pointer'; }} />
+	<T is={markerMesh} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref: any) => { if (onclick) ref.cursor = 'pointer'; }} />
 
 	<!-- Wireframe to show volume bounds -->
 	<T.LineSegments
@@ -451,7 +451,7 @@
 	</T.LineSegments>
 
 	<!-- Semi-transparent box to show volume bounds -->
-	<T.Mesh position={geometry.position} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref) => { if (onclick) ref.cursor = 'pointer'; }}>
+	<T.Mesh position={geometry.position} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref: any) => { if (onclick) ref.cursor = 'pointer'; }}>
 		<T.BoxGeometry args={[geometry.width, geometry.height, geometry.depth]} />
 		<T.MeshBasicMaterial color={lineColor} transparent opacity={boxFaceOpacity} depthWrite={false} />
 	</T.Mesh>
@@ -471,7 +471,7 @@
 	</T.LineSegments>
 
 	<!-- Semi-transparent box to show volume bounds -->
-	<T.Mesh position={geometry.position} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref) => { if (onclick) ref.cursor = 'pointer'; }}>
+	<T.Mesh position={geometry.position} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref: any) => { if (onclick) ref.cursor = 'pointer'; }}>
 		<T.BoxGeometry args={[geometry.width, geometry.height, geometry.depth]} />
 		<T.MeshBasicMaterial color={lineColor} transparent opacity={boxFaceOpacity} depthWrite={false} />
 	</T.Mesh>

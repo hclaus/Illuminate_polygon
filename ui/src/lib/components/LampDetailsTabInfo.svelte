@@ -18,7 +18,7 @@
 	let { presetId, lampId, lampName, hasIes = true, lampType = 'krcl_222', spectrumUploading = false, onLightboxChange }: Props = $props();
 
 	// Determine if this is a session lamp (custom IES) or preset lamp
-	const isSessionLamp = !presetId && !!lampId;
+	const isSessionLamp = $derived(!presetId && !!lampId);
 
 	// State - use a union type for both response types
 	let loading = $state(true);
@@ -48,7 +48,7 @@
 	});
 
 	// Re-fetch when a spectrum upload completes while the modal is open
-	let prevSpectrumUploading = spectrumUploading;
+	let prevSpectrumUploading = $state(spectrumUploading);
 	$effect(() => {
 		const uploading = spectrumUploading;
 		if (prevSpectrumUploading && !uploading) {
@@ -135,7 +135,7 @@
 			loading = false;
 
 			// For session lamps, fetch all plots progressively
-			if (isSessionLamp && (result.has_ies || result.has_spectrum)) {
+			if (isSessionLamp && ((result as SessionLampInfoResponse).has_ies || result.has_spectrum)) {
 				fetchPlots(thisGeneration);
 			}
 		} catch (e) {
@@ -229,9 +229,9 @@
 	}
 
 	// Check if downloads are available (only for preset lamps)
-	const canDownload = !!presetId;
+	const canDownload = $derived(!!presetId);
 
-	function openImageLightbox(imageType: 'photometric' | 'spectrum') {
+	function openImageLightbox(imageType: 'photometric' | 'spectrum' | 'spectrum_linear' | 'spectrum_log') {
 		expandedImageType = imageType;
 		onLightboxChange?.(true);
 		// For session lamps, fetch hi-res on demand (prefetch only loads lo-res)

@@ -50,6 +50,7 @@
 	let grid = $state(true);
 	let contourLabels = $state(true);
 	let equalAspect = $state(true);
+	// svelte-ignore state_referenced_locally
 	let flipY = $state(!shouldFlipV);
 	let exportScale = $state(2);
 	let activePreset = $state('Eye limits irradiance');
@@ -444,7 +445,7 @@
 	}
 
 	// --- Contour Generation ---
-	const smoothedValues = flatValues;
+	const smoothedValues = $derived(flatValues);
 
 	const contoursRaw = $derived.by(() => {
 		const sorted = parsedLevels.slice().sort((a, b) => a - b);
@@ -1232,7 +1233,7 @@
 		octx.font = '600 20px "IBM Plex Sans", sans-serif';
 		octx.textAlign = 'center';
 		octx.textBaseline = 'middle';
-		octx.fillText(zone.name, dataRect.x + dataRect.w / 2, margin.top / 2 + 4);
+		octx.fillText(zone.name || '', dataRect.x + dataRect.w / 2, margin.top / 2 + 4);
 
 		drawColorbar(octx);
 

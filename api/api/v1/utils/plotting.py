@@ -86,3 +86,8 @@ def fig_to_base64(fig, dpi: int = 100, facecolor: str = 'white',
     buf.seek(0)
     plt.close(fig)
     return base64.b64encode(buf.read()).decode('utf-8')
+
+
+import threading
+matplotlib_lock = threading.Lock()
+

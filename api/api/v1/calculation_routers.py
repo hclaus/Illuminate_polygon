@@ -24,7 +24,7 @@ from guv_calcs import WHOLE_ROOM_FLUENCE, EYE_LIMITS, SKIN_LIMITS
 from guv_calcs.project import Project
 
 from .schemas import SimulationZoneResult
-from .utils import get_theme_colors
+from .utils import get_theme_colors, matplotlib_lock
 from .session_helpers import (
     SessionDep,
     InitializedSessionDep,
@@ -366,16 +366,17 @@ def export_session_all(session: InitializedSessionDep, include_plots: bool = Fal
         logger.info(f"Exporting all results as ZIP (include_plots={include_plots}, include_report={include_report})...")
         # Use explicit light theme to prevent dark_background style leakage
         # from concurrent matplotlib usage (e.g. get_zone_plot)
-        with plt.style.context('default'):
-            plt.rcParams.update({
-                'figure.facecolor': 'white',
-                'axes.facecolor': 'white',
-                'text.color': 'black',
-                'axes.labelcolor': 'black',
-                'xtick.color': 'black',
-                'ytick.color': 'black',
-            })
-            zip_bytes = session.room.export_zip(include_plots=include_plots, include_report=include_report)
+        with matplotlib_lock:
+            with plt.style.context('default'):
+                plt.rcParams.update({
+                    'figure.facecolor': 'white',
+                    'axes.facecolor': 'white',
+                    'text.color': 'black',
+                    'axes.labelcolor': 'black',
+                    'xtick.color': 'black',
+                    'ytick.color': 'black',
+                })
+                zip_bytes = session.room.export_zip(include_plots=include_plots, include_report=include_report)
 
         return Response(
             content=zip_bytes,
@@ -487,56 +488,57 @@ def get_survival_plot(
 
         style = 'default' if theme == 'light' else 'dark_background'
         fig = None
-        try:
-            with plt.style.context(style):
-                # Use provided species list or fall back to defaults
-                species_list = [s.strip() for s in species.split(",")] if species else TARGET_SPECIES
-                # Generate survival plot for target species (larger size)
-                fig = session.room.survival_plot(zone_id=zone_id, species=species_list, figsize=(10, 6))
+        with matplotlib_lock:
+            try:
+                with plt.style.context(style):
+                    # Use provided species list or fall back to defaults
+                    species_list = [s.strip() for s in species.split(",")] if species else TARGET_SPECIES
+                    # Generate survival plot for target species (larger size)
+                    fig = session.room.survival_plot(zone_id=zone_id, species=species_list, figsize=(10, 6))
 
-                # Apply base theme
-                fig.patch.set_facecolor(bg_color)
-                for ax in fig.get_axes():
-                    ax.set_facecolor(bg_color)
-                    ax.tick_params(colors=text_color, labelsize=16)
-                    ax.xaxis.label.set_color(text_color)
-                    ax.xaxis.label.set_fontsize(18)
-                    ax.yaxis.label.set_color(text_color)
-                    ax.yaxis.label.set_fontsize(18)
-                    for spine in ax.spines.values():
-                        spine.set_edgecolor(text_color)
-                    # Move legend inside the plot with larger font
-                    legend = ax.get_legend()
-                    if legend:
-                        legend.set_bbox_to_anchor(None)
-                        ax.legend(loc='upper right', fontsize=16)
-                    # Round fluence in title to 2 decimal places and wrap before "at"
-                    title = ax.get_title()
-                    if title:
-                        title = re.sub(
-                            r'(\d+\.\d{3,})(\s*µW/cm²)',
-                            lambda m: f'{float(m.group(1)):.2f}{m.group(2)}',
-                            title
-                        )
-                        if ' at ' in title:
-                            title = title.replace(' at ', '\nat ', 1)
-                        ax.set_title(title, color=text_color, fontsize=20)
+                    # Apply base theme
+                    fig.patch.set_facecolor(bg_color)
+                    for ax in fig.get_axes():
+                        ax.set_facecolor(bg_color)
+                        ax.tick_params(colors=text_color, labelsize=16)
+                        ax.xaxis.label.set_color(text_color)
+                        ax.xaxis.label.set_fontsize(18)
+                        ax.yaxis.label.set_color(text_color)
+                        ax.yaxis.label.set_fontsize(18)
+                        for spine in ax.spines.values():
+                            spine.set_edgecolor(text_color)
+                        # Move legend inside the plot with larger font
+                        legend = ax.get_legend()
+                        if legend:
+                            legend.set_bbox_to_anchor(None)
+                            ax.legend(loc='upper right', fontsize=16)
+                        # Round fluence in title to 2 decimal places and wrap before "at"
+                        title = ax.get_title()
+                        if title:
+                            title = re.sub(
+                                r'(\d+\.\d{3,})(\s*µW/cm²)',
+                                lambda m: f'{float(m.group(1)):.2f}{m.group(2)}',
+                                title
+                            )
+                            if ' at ' in title:
+                                title = title.replace(' at ', '\nat ', 1)
+                            ax.set_title(title, color=text_color, fontsize=20)
 
-                # Convert to base64
-                buf = io.BytesIO()
-                fig.savefig(buf, format='png', dpi=dpi, bbox_inches='tight',
-                            facecolor=bg_color, edgecolor='none')
-                buf.seek(0)
+                    # Convert to base64
+                    buf = io.BytesIO()
+                    fig.savefig(buf, format='png', dpi=dpi, bbox_inches='tight',
+                                facecolor=bg_color, edgecolor='none')
+                    buf.seek(0)
 
-            image_base64 = base64.b64encode(buf.read()).decode('utf-8')
+                image_base64 = base64.b64encode(buf.read()).decode('utf-8')
 
-            return {
-                "image_base64": image_base64,
-                "content_type": "image/png"
-            }
-        finally:
-            if fig is not None:
-                plt.close(fig)
+                return {
+                    "image_base64": image_base64,
+                    "content_type": "image/png"
+                }
+            finally:
+                if fig is not None:
+                    plt.close(fig)
 
     except Exception as e:
         _log_and_raise("Failed to generate survival plot", e)

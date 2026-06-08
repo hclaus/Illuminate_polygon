@@ -3,11 +3,26 @@ import { render, screen, fireEvent } from '@testing-library/svelte';
 import EfficacyWavelengthPlot from './EfficacyWavelengthPlot.svelte';
 
 describe('EfficacyWavelengthPlot', () => {
+  const mockData = [
+    {
+      species: 'E. coli',
+      strain: '',
+      wavelength: 254,
+      k1: 0.5,
+      k2: 0.1,
+      category: 'Bacteria',
+      medium: 'Air',
+      condition: '',
+      reference: '',
+      link: '',
+      resistant_fraction: 0.0,
+      each_uv: 10,
+      seconds_to_99: 10,
+    },
+  ];
+
   it('renders SVG element with data', () => {
-    const data = [
-      { species: 'E. coli', wavelength_nm: 254, k1: 0.5, k2: 0.1, category: 'Bacteria', medium: 'Air', strain: '', condition: '', reference: '', link: '' },
-    ];
-    const { container } = render(EfficacyWavelengthPlot, { props: { filteredData: data } });
+    const { container } = render(EfficacyWavelengthPlot, { props: { filteredData: mockData } });
     expect(container.querySelector('svg')).toBeTruthy();
   });
 
@@ -17,18 +32,12 @@ describe('EfficacyWavelengthPlot', () => {
   });
 
   it('renders axis labels', () => {
-    const data = [
-      { species: 'E. coli', wavelength_nm: 254, k1: 0.5, k2: 0.1, category: 'Bacteria', medium: 'Air', strain: '', condition: '', reference: '', link: '' },
-    ];
-    render(EfficacyWavelengthPlot, { props: { filteredData: data } });
+    render(EfficacyWavelengthPlot, { props: { filteredData: mockData } });
     expect(screen.getByText(/Wavelength/)).toBeTruthy();
   });
 
   it('has k1/k2 toggle checkbox', () => {
-    const data = [
-      { species: 'E. coli', wavelength_nm: 254, k1: 0.5, k2: 0.1, category: 'Bacteria', medium: 'Air', strain: '', condition: '', reference: '', link: '' },
-    ];
-    const { container } = render(EfficacyWavelengthPlot, { props: { filteredData: data } });
+    const { container } = render(EfficacyWavelengthPlot, { props: { filteredData: mockData } });
     const checkbox = container.querySelector('input[type="checkbox"]');
     expect(checkbox).toBeTruthy();
   });
