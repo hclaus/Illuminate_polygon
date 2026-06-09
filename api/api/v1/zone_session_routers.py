@@ -337,6 +337,11 @@ def get_session_zones(session: InitializedSessionDep):
             zone_state.view_target = getattr(zone, 'view_target', None)
             zone_state.direction = getattr(zone, 'direction', 1)
             zone_state.ref_surface = getattr(zone, 'ref_surface', 'xy')
+            v_hat = getattr(zone.geometry, 'v_hat', None)
+            if v_hat is not None:
+                abs_v = np.abs(v_hat)
+                v_idx = int(np.argmax(abs_v))
+                zone_state.v_positive_direction = bool(v_hat[v_idx] > 0)
         elif is_point:
             zone_state.x = zone.position[0]
             zone_state.y = zone.position[1]

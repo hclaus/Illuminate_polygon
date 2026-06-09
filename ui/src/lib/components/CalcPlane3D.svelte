@@ -41,7 +41,7 @@
 	// Use v_positive_direction from geometry if available, otherwise compute from ref_surface/direction
 	const shouldFlipValues = $derived.by(() => {
 		// Prefer the computed value from backend geometry
-		if (zone.v_positive_direction !== undefined) {
+		if (zone.v_positive_direction != null) {
 			// When v points negative, values are ordered opposite to world coordinates
 			return !zone.v_positive_direction;
 		}
@@ -645,7 +645,7 @@
 
 {#if zone.enabled !== false && displayMode === 'none'}
 	<!-- None mode: no visualization -->
-{:else if zone.enabled !== false && hasValues && displayMode === 'heatmap' && surfaceGeometry}
+{:else if zone.enabled !== false && hasValues && (displayMode === 'heatmap' || displayMode === 'contours') && surfaceGeometry}
 	<!-- Heatmap surface -->
 	<T.Mesh geometry={surfaceGeometry} renderOrder={1} onclick={onclick} userData={{ clickType: 'zone', clickId: zone.id }} oncreate={(ref: any) => { if (onclick) ref.cursor = 'pointer'; }}>
 		<T.MeshBasicMaterial

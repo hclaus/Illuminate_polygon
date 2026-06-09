@@ -44,6 +44,15 @@
 		}
 	});
 
+	// Sync changes reactively from the store back to local state
+	$effect(() => {
+		const targetMode = zone.display_mode === 'contours' ? 'contour' :
+			zone.display_mode === 'numeric' ? 'numeric' : 'heatmap';
+		if (displayMode !== targetMode) {
+			displayMode = targetMode;
+		}
+	});
+
 	// Axes, ticks, and tick labels toggles
 	let showAxes = $state(true);
 	let showTickMarks = $state(true);
@@ -404,7 +413,7 @@
 	// Use v_positive_direction from geometry if available, otherwise compute from ref_surface/direction
 	const shouldFlipV = $derived.by(() => {
 		// Prefer the computed value from backend geometry
-		if (zone.v_positive_direction !== undefined) {
+		if (zone.v_positive_direction != null) {
 			return zone.v_positive_direction;
 		}
 		// Fallback: compute from ref_surface and direction (for axis-aligned planes)

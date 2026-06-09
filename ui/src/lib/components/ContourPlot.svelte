@@ -5,7 +5,8 @@
 	import type { CalcZone, RoomConfig } from '$lib/types/project';
 	import { formatValue as appFormatValue } from '$lib/utils/formatting';
 	import { theme } from '$lib/stores/theme';
-	import { project } from '$lib/stores/project';
+	import { lamps, project } from '$lib/stores/project';
+	import { getLampInfo, getSessionLampInfo } from '$lib/api/client';
 
 	interface Props {
 		values: number[][];
@@ -50,14 +51,83 @@
 	let grid = $state(true);
 	let contourLabels = $state(true);
 	let equalAspect = $state(true);
-	// svelte-ignore state_referenced_locally
-	let flipY = $state(!shouldFlipV);
+	const flipY = $derived(!shouldFlipV);
+	let useLampLimits = $state(false);
 	let exportScale = $state(2);
-	let activePreset = $state('Eye limits irradiance');
+	const isSkin = $derived((zone.name || zone.id || '').toLowerCase().includes('skin'));
+	const isDose = $derived(zone.dose === true || valueUnits.toLowerCase().includes('mj'));
 
-	// Automatically flip Y in contour plot if heatmap doesn't flip it
+	const lampSpecificLimitsName = $derived.by(() => {
+		const target = isSkin ? 'Skin' : 'Eye';
+		const metric = isDose ? 'dose' : 'irradiance';
+		return `${target} level ${metric} LSL`;
+	});
+
+	let activePreset = $state(getDefaultPresetName());
+	let plotTitle = $state(zone.contour_settings?.title ?? zone.name ?? zone.id ?? '');
+
+	let lampTlvAcgihSkin = $state(479);
+	let lampTlvAcgihEye = $state(161);
+	let lampTlvIcnirpSkin = $state(23);
+	let lampTlvIcnirpEye = $state(23);
+
+	async function fetchLampLimits() {
+		const firstLamp = $lamps.find(l => l.enabled) || $lamps[0];
+		if (!firstLamp) return;
+
+		try {
+			let info;
+			const isPreset = firstLamp.preset_id && firstLamp.preset_id !== 'custom' && firstLamp.preset_id !== '';
+			if (isPreset) {
+				info = await getLampInfo(firstLamp.preset_id!, 'log', $theme);
+			} else {
+				info = await getSessionLampInfo(firstLamp.id);
+			}
+			if (info && info.tlv_acgih && info.tlv_icnirp) {
+				lampTlvAcgihSkin = info.tlv_acgih.skin;
+				lampTlvAcgihEye = info.tlv_acgih.eye;
+				lampTlvIcnirpSkin = info.tlv_icnirp.skin;
+				lampTlvIcnirpEye = info.tlv_icnirp.eye;
+			}
+		} catch (e) {
+			console.warn('Failed to fetch lamp limits for contour plot:', e);
+		}
+	}
+
 	$effect(() => {
-		flipY = !shouldFlipV;
+		const _ = $lamps;
+		const __ = $theme;
+		fetchLampLimits();
+	});
+
+	$effect(() => {
+		if (useLampLimits) {
+			const acgih = isSkin ? lampTlvAcgihSkin : lampTlvAcgihEye;
+			const icnirp = isSkin ? lampTlvIcnirpSkin : lampTlvIcnirpEye;
+
+			// Dose limits: ICNIRP, 20% ACGIH, 40% ACGIH, 60% ACGIH, 100% ACGIH, 200% ACGIH (ACGIH 4hrs)
+			const l1 = icnirp;
+			const l2 = 0.2 * acgih;
+			const l3 = 0.4 * acgih;
+			const l4 = 0.6 * acgih;
+			const l5 = acgih;
+			const l6 = 2.0 * acgih;
+
+			let derivedLevels: number[];
+			if (isDose) {
+				derivedLevels = [l1, l2, l3, l4, l5, l6];
+			} else {
+				derivedLevels = [l1 / 30, l2 / 30, l3 / 30, l4 / 30, l5 / 30, l6 / 30];
+			}
+
+			levelsStr = derivedLevels.map(v => {
+				if (Number.isInteger(v)) return v.toString();
+				return parseFloat(v.toFixed(2)).toString();
+			}).join(', ');
+
+			labelsStr = 'ICNIRP, 20% ACGIH, 40% ACGIH, 60% ACGIH, 100% ACGIH, ACGIH 4hrs';
+			activePreset = lampSpecificLimitsName;
+		}
 	});
 
 	// Parsed configuration
@@ -151,8 +221,10 @@
 			contourLabels,
 			equalAspect,
 			flipY,
+			useLampLimits,
 			exportScale,
 			activePreset,
+			title: plotTitle,
 			overlays: overlays.map(o => ({
 				id: o.id,
 				src: o.src,
@@ -182,9 +254,10 @@
 			grid,
 			contourLabels,
 			equalAspect,
-			flipY,
+			useLampLimits,
 			exportScale,
-			activePreset
+			activePreset,
+			plotTitle
 		};
 
 		if (!isSyncInitialized) {
@@ -252,7 +325,11 @@
 
 	function handlePresetChange(e: Event) {
 		const val = (e.target as HTMLSelectElement).value;
-		if (val !== '__custom__') {
+		if (val === lampSpecificLimitsName) {
+			useLampLimits = true;
+			activePreset = lampSpecificLimitsName;
+		} else if (val !== '__custom__') {
+			useLampLimits = false;
 			applyPreset(val);
 		}
 	}
@@ -1002,6 +1079,13 @@
 
 		// Color bar legend
 		drawColorbar(ctx);
+
+		// Draw Title
+		ctx.fillStyle = $theme === 'dark' ? '#ffffff' : '#15171c';
+		ctx.font = '600 20px "IBM Plex Sans", system-ui, sans-serif';
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.fillText(plotTitle, dataRect.x + dataRect.w / 2, margin.top / 2 + 4);
 	}
 
 	function drawColorbar(ctx: CanvasRenderingContext2D) {
@@ -1233,7 +1317,7 @@
 		octx.font = '600 20px "IBM Plex Sans", sans-serif';
 		octx.textAlign = 'center';
 		octx.textBaseline = 'middle';
-		octx.fillText(zone.name || '', dataRect.x + dataRect.w / 2, margin.top / 2 + 4);
+		octx.fillText(plotTitle, dataRect.x + dataRect.w / 2, margin.top / 2 + 4);
 
 		drawColorbar(octx);
 
@@ -1243,7 +1327,8 @@
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
-			a.download = `${zone.name}_contours.png`;
+			const filename = (plotTitle || zone.name || 'contours').trim().replace(/\s+/g, '_');
+			a.download = `${filename}.png`;
 			document.body.appendChild(a);
 			a.click();
 			a.remove();
@@ -1265,9 +1350,10 @@
 			grid = s.grid;
 			contourLabels = s.contourLabels;
 			equalAspect = s.equalAspect;
-			flipY = s.flipY;
+			useLampLimits = s.useLampLimits ?? false;
 			exportScale = s.exportScale;
-			activePreset = s.activePreset;
+			activePreset = s.activePreset === 'Lamp specific limits' ? lampSpecificLimitsName : s.activePreset;
+			plotTitle = s.title ?? zone.name ?? zone.id ?? '';
 
 			if (s.overlays) {
 				overlays = s.overlays.map(o => {
@@ -1406,12 +1492,28 @@
 	<!-- Sidebar Controls -->
 	<aside class="contour-sidebar">
 		<div class="contour-sidebar-scroll">
+			<!-- Plot Title Card -->
+			<div class="contour-card">
+				<h3 class="contour-card-title">Plot Title</h3>
+				<div class="contour-field" style="margin-bottom: 0;">
+					<input
+						type="text"
+						class="contour-text"
+						bind:value={plotTitle}
+						placeholder="Enter plot title..."
+					/>
+				</div>
+			</div>
+
 			<!-- Presets Card -->
 			<div class="contour-card">
 				<h3 class="contour-card-title">Presets</h3>
 				<div class="contour-field">
 					<div class="contour-row gap">
-						<select class="contour-select grow" value={activePreset} onchange={handlePresetChange}>
+						<select class="contour-select grow" value={useLampLimits ? lampSpecificLimitsName : activePreset} onchange={handlePresetChange}>
+							{#if useLampLimits}
+								<option value={lampSpecificLimitsName}>{lampSpecificLimitsName}</option>
+							{/if}
 							<option value="__custom__">Custom</option>
 							{#each BUILT_IN_PRESETS as p}
 								<option value={p.name}>{p.name}</option>
@@ -1420,8 +1522,8 @@
 								<option value={p.name}>{p.name} ★</option>
 							{/each}
 						</select>
-						<button class="contour-btn" onclick={saveCurrentPreset} title="Save preset">Save</button>
-						<button class="contour-btn" onclick={deletePreset} title="Delete preset">Del</button>
+						<button class="contour-btn" onclick={saveCurrentPreset} title="Save preset" disabled={useLampLimits}>Save</button>
+						<button class="contour-btn" onclick={deletePreset} title="Delete preset" disabled={useLampLimits}>Del</button>
 					</div>
 					<div class="contour-row gap" style="margin-top:8px;">
 						<button class="contour-linkbtn" onclick={exportPresets}>Export presets</button>
@@ -1437,11 +1539,11 @@
 				<h3 class="contour-card-title">Thresholds</h3>
 				<div class="contour-field">
 					<label for="levels">Levels <span class="contour-hint">comma-separated</span></label>
-					<input id="levels" type="text" class="contour-text mono" bind:value={levelsStr} oninput={() => activePreset = '__custom__'} />
+					<input id="levels" type="text" class="contour-text mono" bind:value={levelsStr} oninput={() => { activePreset = '__custom__'; useLampLimits = false; }} disabled={useLampLimits} />
 				</div>
 				<div class="contour-field">
 					<label for="labels">Labels</label>
-					<input id="labels" type="text" class="contour-text" bind:value={labelsStr} oninput={() => activePreset = '__custom__'} />
+					<input id="labels" type="text" class="contour-text" bind:value={labelsStr} oninput={() => { activePreset = '__custom__'; useLampLimits = false; }} disabled={useLampLimits} />
 				</div>
 				<div class="contour-field">
 					<label for="colors">Band colors</label>
@@ -1523,9 +1625,9 @@
 					<span class="contour-switch-label">Equal aspect ratio</span>
 				</label>
 				<label class="contour-switch">
-					<input type="checkbox" bind:checked={flipY} />
+					<input type="checkbox" bind:checked={useLampLimits} />
 					<span class="contour-track"></span>
-					<span class="contour-switch-label">Flip Y-axis</span>
+					<span class="contour-switch-label">Use {lampSpecificLimitsName}</span>
 				</label>
 			</div>
 
@@ -1589,6 +1691,14 @@
 
 	<!-- Stage Viewport -->
 	<main class="contour-stage" onclick={handleStageClick}>
+		<div class="contour-title-container">
+			<input
+				type="text"
+				class="contour-title-input"
+				bind:value={plotTitle}
+				placeholder="Enter plot title..."
+			/>
+		</div>
 		<div class="contour-stage-area">
 			<div class="contour-figure-wrap" style="width: {layout.figW}px; height: {layout.figH}px;">
 				<!-- Drawing Canvas -->
@@ -2017,6 +2127,41 @@
 		min-width: 0;
 		background: var(--contour-bg);
 		overflow: auto;
+	}
+
+	.contour-title-container {
+		display: flex;
+		justify-content: center;
+		padding: 16px 16px 4px 16px;
+		background: var(--contour-bg);
+	}
+
+	.contour-title-input {
+		background: transparent;
+		border: 1px solid transparent;
+		border-bottom: 1px dashed var(--contour-line-2);
+		border-radius: 0;
+		font-family: 'IBM Plex Sans', system-ui, sans-serif;
+		font-size: 1.25rem;
+		font-weight: 600;
+		color: var(--contour-ink);
+		text-align: center;
+		padding: 6px 12px;
+		width: 100%;
+		max-width: 400px;
+		transition: all 0.2s ease;
+	}
+
+	.contour-title-input:hover {
+		background: var(--contour-panel-2);
+		border-color: var(--contour-line);
+	}
+
+	.contour-title-input:focus {
+		background: var(--contour-panel);
+		border-color: var(--contour-accent);
+		outline: none;
+		box-shadow: 0 0 0 3px var(--contour-accent-soft);
 	}
 
 	.contour-stage-area {

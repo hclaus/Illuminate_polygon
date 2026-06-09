@@ -75,8 +75,10 @@ class SessionContourSettings(BaseModel):
     contourLabels: Optional[bool] = True
     equalAspect: Optional[bool] = True
     flipY: Optional[bool] = False
+    useLampLimits: Optional[bool] = False
     exportScale: Optional[int] = 1
     activePreset: Optional[str] = "manual"
+    title: Optional[str] = None
     overlays: list[SessionContourOverlay] = []
 
 

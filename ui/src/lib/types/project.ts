@@ -155,8 +155,10 @@ export interface ContourSettings {
   contourLabels: boolean;
   equalAspect: boolean;
   flipY: boolean;
+  useLampLimits: boolean;
   exportScale: number;
   activePreset: string;
+  title?: string;
   overlays?: ContourOverlay[];
 }
 

@@ -119,6 +119,31 @@
 		type = zone?.type || 'plane';
 		display_mode = zone?.display_mode ?? (zone?.show_values === false ? 'markers' : 'heatmap');
 		height = zone?.height ?? 1.0;
+		calc_mode = zone?.calc_mode ?? 'planar_normal';
+		ref_surface = zone?.ref_surface ?? 'xy';
+		direction = zone?.direction ?? 1;
+		fov_vert = zone?.fov_vert ?? 180;
+		fov_horiz = zone?.fov_horiz ?? 360;
+		horiz = zone?.horiz ?? false;
+		vert = zone?.vert ?? false;
+		use_normal = zone?.use_normal ?? false;
+		dose = zone?.dose ?? false;
+		doseHours = zone?.hours ?? 8;
+		doseMinutes = zone?.minutes ?? 0;
+		doseSeconds = zone?.seconds ?? 0;
+		offset = zone?.offset ?? true;
+		prevCalcMode = zone?.calc_mode ?? 'planar_normal';
+
+		if (zone?.calc_mode === 'custom') {
+			savedCustomFlags = {
+				horiz: zone.horiz ?? false,
+				vert: zone.vert ?? false,
+				use_normal: zone.use_normal ?? false,
+				fov_vert: zone.fov_vert ?? 180,
+				fov_horiz: zone.fov_horiz ?? 360
+			};
+		}
+
 		x1 = zone?.x1 ?? 0;
 		x2 = zone?.x2 ?? room.x;
 		y1 = zone?.y1 ?? 0;
@@ -140,11 +165,19 @@
 			view_dir_x = zone.view_direction[0];
 			view_dir_y = zone.view_direction[1];
 			view_dir_z = zone.view_direction[2];
+		} else {
+			view_dir_x = 0;
+			view_dir_y = 1;
+			view_dir_z = 0;
 		}
 		if (zone?.view_target) {
 			view_target_x = zone.view_target[0];
 			view_target_y = zone.view_target[1];
 			view_target_z = zone.view_target[2];
+		} else {
+			view_target_x = Math.round(room.x / 2 * 1000) / 1000;
+			view_target_y = Math.round(room.y / 2 * 1000) / 1000;
+			view_target_z = Math.round(room.z / 2 * 1000) / 1000;
 		}
 		// Point fields (round to avoid float artifacts)
 		point_x = r(zone?.x ?? room.x / 2);
@@ -296,6 +329,7 @@
 	// Auto-save when any field changes (debounced to prevent cascading updates)
 	let saveTimeout: ReturnType<typeof setTimeout>;
 	let isInitialized = false;
+	let lastZoneId = zone?.id;
 
 	// Track which grid fields were explicitly changed by user (not computed from mode toggle)
 	// This prevents mode toggles from triggering unnecessary saves
@@ -349,6 +383,12 @@
 		// Skip the initial run
 		if (!isInitialized) {
 			isInitialized = true;
+			return;
+		}
+
+		// Skip saving if the zone ID changed (we are switching zones)
+		if (zone.id !== lastZoneId) {
+			lastZoneId = zone.id;
 			return;
 		}
 
