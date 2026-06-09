@@ -17,35 +17,46 @@
 	const outlineWidth = $derived(axisLength * 0.02);
 </script>
 
+<!-- Axes Helper (Flipped Z to match room coordinates) -->
 <T.Group position={origin} scale={[1, 1, -1]}>
 	<T.AxesHelper args={[axisLength]} />
-	<BillboardGroup>
-		<!-- X Label (Red Axis) -->
+</T.Group>
+
+<!-- Labels (Unflipped scale to prevent mirroring of text) -->
+<T.Group position={origin}>
+	<!-- X Label (Red Axis - flows along X, flat on horizontal floor plane) -->
+	<T.Group position={[axisLength + axisLength * 0.08, 0, 0]}>
 		<Text
 			text="x"
-			fontSize={axisLength * 0.25}
+			fontSize={axisLength * 0.22}
 			color="#ef4444"
 			{outlineColor}
 			{outlineWidth}
-			position={[axisLength + axisLength * 0.08, 0, 0]}
+			rotation={[-Math.PI / 2, 0, 0]}
 			anchorX="left"
 			anchorY="middle"
 		/>
-		<!-- Y Label (Blue Axis in local scale flipped Z) -->
+	</T.Group>
+
+	<!-- Y Label (Blue Axis - flows along -Z, flat on horizontal floor plane) -->
+	<T.Group position={[0, 0, -axisLength - axisLength * 0.08]}>
 		<Text
 			text="y"
-			fontSize={axisLength * 0.25}
+			fontSize={axisLength * 0.22}
 			color="#3b82f6"
 			{outlineColor}
 			{outlineWidth}
-			position={[0, 0, axisLength + axisLength * 0.08]}
+			rotation={[-Math.PI / 2, 0, 0]}
 			anchorX="center"
 			anchorY="middle"
 		/>
-		<!-- Z Label (Green Axis - Vertical) -->
+	</T.Group>
+
+	<!-- Z Label (Green Axis - Vertical, billboarded so it's always readable) -->
+	<BillboardGroup>
 		<Text
 			text="z"
-			fontSize={axisLength * 0.25}
+			fontSize={axisLength * 0.22}
 			color="#22c55e"
 			{outlineColor}
 			{outlineWidth}
