@@ -67,9 +67,15 @@
 		const handleMessage = (event: MessageEvent) => {
 			if (event.origin !== window.location.origin) return;
 			if (event.data?.type === 'polygon_update') {
-				const newPolygon = event.data.vertices;
-				if (Array.isArray(newPolygon)) {
-					project.updateRoom({ polygon: newPolygon });
+				const newPolygon = event.data.vertices as [number, number][];
+				if (Array.isArray(newPolygon) && newPolygon.length > 0) {
+					const maxX = Math.max(...newPolygon.map(v => v[0]));
+					const maxY = Math.max(...newPolygon.map(v => v[1]));
+					project.updateRoom({
+						polygon: newPolygon,
+						x: maxX,
+						y: maxY
+					});
 				}
 			}
 		};

@@ -1738,6 +1738,7 @@ function createProjectStore() {
     // calc_mode, etc). Custom zones get grid values (num_points, spacing) merged
     // so the store stays in sync after reinit or room resize.
     async refreshStandardZones() {
+      if (!_sessionInitialized) return;
       const current = get({ subscribe });
       if (!current.room.useStandardZones) return;
 
