@@ -1,7 +1,7 @@
 @echo off
-title Illuminate Local
+title Illuminate Local (Polygon Support)
 echo ===================================================
-echo               ILLUMINATE LOCAL                     
+echo        ILLUMINATE LOCAL - POLYGON FOOTPRINT SUPPORT                     
 echo ===================================================
 echo.
 
