@@ -797,6 +797,7 @@
 	}
 
 	function startOverlayDrag(e: PointerEvent, o: Overlay) {
+		e.preventDefault();
 		e.stopPropagation();
 		isInteracting = true;
 		selectedOverlayId = o.id;
@@ -813,6 +814,7 @@
 	}
 
 	function startOverlayResize(e: PointerEvent, o: Overlay) {
+		e.preventDefault();
 		e.stopPropagation();
 		isInteracting = true;
 		selectedOverlayId = o.id;
@@ -831,6 +833,7 @@
 	}
 
 	function startOverlayRotate(e: PointerEvent, o: Overlay) {
+		e.preventDefault();
 		e.stopPropagation();
 		isInteracting = true;
 		selectedOverlayId = o.id;
@@ -1710,6 +1713,7 @@
 					class="contour-overlay-layer"
 					onpointermove={handlePointerMove}
 					onpointerup={handlePointerUp}
+					onpointercancel={handlePointerUp}
 				>
 					{#each overlays as o}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -1745,6 +1749,7 @@
 							onpointerdown={(e) => startLabelDrag(e, pl.i, e.currentTarget as HTMLDivElement)}
 							onpointermove={handleLabelPointerMove}
 							onpointerup={handleLabelPointerUp}
+							onpointercancel={handleLabelPointerUp}
 						>
 							{pl.text}
 						</div>
