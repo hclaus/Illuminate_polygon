@@ -196,6 +196,7 @@ export const LoadedRoomSchema = z.object({
   x: z.number(),
   y: z.number(),
   z: z.number(),
+  polygon: z.array(z.tuple([z.number(), z.number()])).nullable().optional(),
   units: z.string(),
   standard: z.string(),
   precision: z.number(),

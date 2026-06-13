@@ -297,6 +297,7 @@ function projectToSessionInit(p: Project): SessionInitRequest {
       air_changes: p.room.air_changes ?? ROOM_DEFAULTS.air_changes,
       ozone_decay_constant: p.room.ozone_decay_constant ?? ROOM_DEFAULTS.ozone_decay_constant,
       colormap: p.room.colormap ?? ROOM_DEFAULTS.colormap,
+      polygon: p.room.polygon,
     },
     lamps: p.lamps.map(lampToSessionLamp),
     zones: p.zones.map(zoneToSessionZone),
@@ -432,6 +433,7 @@ async function syncRoom(partial: Partial<RoomConfig>) {
     if (partial.x !== undefined) updates.x = partial.x;
     if (partial.y !== undefined) updates.y = partial.y;
     if (partial.z !== undefined) updates.z = partial.z;
+    if ('polygon' in partial) updates.polygon = partial.polygon ?? null;
     if (partial.precision !== undefined) updates.precision = partial.precision;
     if (partial.standard !== undefined) updates.standard = partial.standard;
     if (partial.enable_reflectance !== undefined) updates.enable_reflectance = partial.enable_reflectance;
@@ -1465,6 +1467,7 @@ function createProjectStore() {
         x: response.room.x,
         y: response.room.y,
         z: response.room.z,
+        polygon: response.room.polygon ?? undefined,
         standard: response.room.standard as RoomConfig['standard'],
         precision: response.room.precision,
         enable_reflectance: response.room.enable_reflectance,

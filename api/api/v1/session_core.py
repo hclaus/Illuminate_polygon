@@ -112,13 +112,19 @@ def init_session(request: SessionInitRequest, session: SessionCreateDep):
         project = Project(**project_kwargs)
 
         # Create Room via project with room-specific params
-        project.create_room(
-            x=request.room.x,
-            y=request.room.y,
+        room_kwargs = dict(
             z=request.room.z,
             air_changes=request.room.air_changes,
             ozone_decay_constant=request.room.ozone_decay_constant,
         )
+        if request.room.polygon is not None:
+            from guv_calcs import Polygon2D
+            room_kwargs["polygon"] = Polygon2D(vertices=request.room.polygon)
+        else:
+            room_kwargs["x"] = request.room.x
+            room_kwargs["y"] = request.room.y
+
+        project.create_room(**room_kwargs)
         session.project = project
 
         # Always apply reflectance values so they're ready if reflectance is
@@ -229,6 +235,8 @@ def set_session_units(request: SetUnitsRequest, session: InitializedSessionDep):
             "y": session.room.y,
             "z": session.room.z,
         }
+        if session.room.is_polygon:
+            room_coords["polygon"] = [list(v) for v in session.room.polygon.vertices]
 
         lamp_coords = {}
         for lamp_id, lamp in session.room.lamps.items():
@@ -346,8 +354,13 @@ def update_session_room(updates: SessionRoomUpdate, session: InitializedSessionD
             check_budget(session, additional_memory_mb=refl_memory_mb)
 
         # units changes are handled by PATCH /session/units, not here
-        if updates.x is not None or updates.y is not None or updates.z is not None:
-            session.room.set_dimensions(x=updates.x, y=updates.y, z=updates.z)
+        if updates.x is not None or updates.y is not None or updates.z is not None or updates.polygon is not None:
+            poly_obj = None
+            if updates.polygon is not None:
+                from guv_calcs import Polygon2D
+                poly_obj = Polygon2D(vertices=updates.polygon)
+            session.room._update_dimensions(x=updates.x, y=updates.y, z=updates.z, polygon=poly_obj)
+            session.room._resize_standard_zones()
         if updates.precision is not None:
             session.room.precision = updates.precision
         if updates.colormap is not None:
@@ -456,6 +469,7 @@ def get_session_status(session: SessionDep):
         "session_id": session.id,
         "room": {
             "dimensions": [session.room.x, session.room.y, session.room.z],
+            "polygon": [list(v) for v in session.room.polygon.vertices] if session.room.is_polygon else None,
             "units": session.room.units,
             "standard": session.room.standard,
         },

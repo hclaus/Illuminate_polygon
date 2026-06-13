@@ -31,12 +31,42 @@
 		const target = event.target as HTMLInputElement;
 		project.updateRoom({ enable_reflectance: target.checked });
 	}
+
+	const isPolygon = $derived(!!$room.polygon && $room.polygon.length > 0);
+
+	function handlePolygonToggle(event: Event) {
+		const target = event.target as HTMLInputElement;
+		if (target.checked) {
+			const xVal = $room.x ?? 4;
+			const yVal = $room.y ?? 6;
+			project.updateRoom({
+				polygon: [
+					[0, 0],
+					[xVal, 0],
+					[xVal, yVal],
+					[0, yVal]
+				]
+			});
+		} else {
+			const xVal = $room.x ?? 4;
+			const yVal = $room.y ?? 6;
+			project.updateRoom({
+				polygon: undefined,
+				x: xVal,
+				y: yVal
+			});
+		}
+	}
+
+	function openPolygonBuilder() {
+		window.open('/polygon_builder.html', '_blank');
+	}
 </script>
 
 <div class="room-editor">
 	<!-- Dimensions with Units -->
 	<div class="form-group">
-		<span class="room-label">Dimensions</span>
+		<span class="room-label">{isPolygon ? 'Maximum dimensions' : 'Dimensions'}</span>
 		<div class="dimensions-row">
 			<div class="dim-inputs">
 				<div class="input-with-label">
@@ -44,8 +74,9 @@
 					<input
 						type="text"
 						inputmode="decimal"
-						value={displayDimension($room.x, $room.precision)}
+						value={displayDimension($room.x ?? 0, $room.precision)}
 						onchange={(e) => handleDimensionChange('x', e)}
+						disabled={isPolygon}
 					/>
 				</div>
 				<div class="input-with-label">
@@ -53,8 +84,9 @@
 					<input
 						type="text"
 						inputmode="decimal"
-						value={displayDimension($room.y, $room.precision)}
+						value={displayDimension($room.y ?? 0, $room.precision)}
 						onchange={(e) => handleDimensionChange('y', e)}
+						disabled={isPolygon}
 					/>
 				</div>
 				<div class="input-with-label">
@@ -71,6 +103,26 @@
 				<option value="meters">m</option>
 				<option value="feet">ft</option>
 			</select>
+		</div>
+	</div>
+
+	<!-- Polygon Room Toggle and Details Button -->
+	<div class="form-group">
+		<div class="polygon-toggle-row">
+			<label class="checkbox-label">
+				<input
+					type="checkbox"
+					checked={isPolygon}
+					onchange={handlePolygonToggle}
+					use:enterToggle
+				/>
+				<span>Polygon room</span>
+			</label>
+			{#if isPolygon}
+				<button type="button" class="secondary details-btn" onclick={openPolygonBuilder}>
+					Details
+				</button>
+			{/if}
 		</div>
 	</div>
 
@@ -169,5 +221,20 @@
 
 	input, select {
 		width: 100%;
+	}
+
+	.polygon-toggle-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+		gap: var(--spacing-xs);
+	}
+
+	.details-btn {
+		padding: 4px 8px;
+		font-size: var(--font-size-sm);
+		height: auto;
+		width: auto;
 	}
 </style>

@@ -44,22 +44,81 @@
 		tickText: '#cccccc'
 	});
 
-	// Create wireframe edges for the room box
-	// Three.js uses Y-up, so we map: room X -> 3D X, room Y -> 3D Z, room Z -> 3D Y
-	const geometry = $derived(new THREE.BoxGeometry(dims.x, dims.z, dims.y));
-	const edges = $derived(new THREE.EdgesGeometry(geometry));
+	// Check if the room is a polygon room
+	const isPolygon = $derived(!!room.polygon && room.polygon.length > 0);
 
-	// Dispose GPU geometry when reassigned or on unmount
+	// Shape for polygon mode
+	const polyShape = $derived.by(() => {
+		if (!isPolygon || !room.polygon) return null;
+		const shape = new THREE.Shape();
+		const pts = room.polygon;
+		if (pts.length > 0) {
+			shape.moveTo(pts[0][0], pts[0][1]);
+			for (let i = 1; i < pts.length; i++) {
+				shape.lineTo(pts[i][0], pts[i][1]);
+			}
+			shape.closePath();
+		}
+		return shape;
+	});
+
+	// Geometries for rectangular mode
+	const rectGeometry = $derived(isPolygon ? null : new THREE.BoxGeometry(dims.x, dims.z, dims.y));
+	const rectEdges = $derived(rectGeometry ? new THREE.EdgesGeometry(rectGeometry) : null);
+
+	// Geometries for polygon mode
+	const polyGeometry = $derived.by(() => {
+		if (!polyShape) return null;
+		return new THREE.ExtrudeGeometry(polyShape, {
+			depth: dims.z,
+			bevelEnabled: false
+		});
+	});
+	const polyEdges = $derived(polyGeometry ? new THREE.EdgesGeometry(polyGeometry) : null);
+	const floorCeilGeometry = $derived(polyShape ? new THREE.ShapeGeometry(polyShape) : null);
+
+	// Materials for polygon mode (caps hidden, walls visible)
+	const wallMaterial = $derived(new THREE.MeshStandardMaterial({
+		color: colors.walls,
+		transparent: true,
+		opacity: 0.1,
+		side: THREE.DoubleSide,
+		depthWrite: false
+	}));
+	const capMaterial = $derived(new THREE.MeshBasicMaterial({ visible: false }));
+	const polyMaterials = $derived([capMaterial, wallMaterial]);
+
+	// Dispose geometries and materials on unmount/reassign
 	$effect(() => {
-		const geo = geometry;
-		return () => { geo.dispose(); };
+		const geo = rectGeometry;
+		return () => { if (geo) geo.dispose(); };
 	});
 	$effect(() => {
-		const geo = edges;
-		return () => { geo.dispose(); };
+		const geo = rectEdges;
+		return () => { if (geo) geo.dispose(); };
+	});
+	$effect(() => {
+		const geo = polyGeometry;
+		return () => { if (geo) geo.dispose(); };
+	});
+	$effect(() => {
+		const geo = polyEdges;
+		return () => { if (geo) geo.dispose(); };
+	});
+	$effect(() => {
+		const geo = floorCeilGeometry;
+		return () => { if (geo) geo.dispose(); };
+	});
+	$effect(() => {
+		const mat = wallMaterial;
+		return () => { mat.dispose(); };
+	});
+	$effect(() => {
+		const mat = capMaterial;
+		return () => { mat.dispose(); };
 	});
 
-	// Room center position
+	// Room center position (used for rectangle center)
 	const position = $derived<[number, number, number]>([dims.x / 2, dims.z / 2, -dims.y / 2]);
 
 	const units = $derived($userSettings.units);
@@ -91,39 +150,70 @@
 	}
 
 	// Tick arrays in display units (show 0 only on X axis to mark the origin once)
-	const xTicks = $derived(generateTicks(room.x));
-	const yTicks = $derived(generateTicks(room.y).filter(t => t > 0));
+	const xTicks = $derived(generateTicks(room.x ?? dims.x));
+	const yTicks = $derived(generateTicks(room.y ?? dims.y).filter(t => t > 0));
 	const zTicks = $derived(generateTicks(room.z).filter(t => t > 0));
 </script>
 
-<!-- Room wireframe box -->
-<T.LineSegments {position}>
-	<T is={edges} />
-	<T.LineBasicMaterial color={colors.wireframe} linewidth={2} />
-</T.LineSegments>
+{#if isPolygon}
+	<!-- Room wireframe (polygon mode) -->
+	{#if polyEdges}
+		<T.LineSegments position={[0, 0, 0]} rotation.x={-Math.PI / 2}>
+			<T is={polyEdges} />
+			<T.LineBasicMaterial color={colors.wireframe} linewidth={2} />
+		</T.LineSegments>
+	{/if}
 
-<!-- Semi-transparent floor -->
-<T.Mesh position={[dims.x / 2, 0.001, -dims.y / 2]} rotation.x={-Math.PI / 2}>
-	<T.PlaneGeometry args={[dims.x, dims.y]} />
-	<T.MeshStandardMaterial color={colors.floor} transparent opacity={0.3} side={THREE.DoubleSide} depthWrite={false} />
-</T.Mesh>
+	<!-- Semi-transparent floor (polygon mode) -->
+	{#if floorCeilGeometry}
+		<T.Mesh geometry={floorCeilGeometry} position={[0, 0.001, 0]} rotation.x={-Math.PI / 2}>
+			<T.MeshStandardMaterial color={colors.floor} transparent opacity={0.3} side={THREE.DoubleSide} depthWrite={false} />
+		</T.Mesh>
+	{/if}
 
-<!-- Semi-transparent ceiling -->
-<T.Mesh position={[dims.x / 2, dims.z - 0.001, -dims.y / 2]} rotation.x={-Math.PI / 2}>
-	<T.PlaneGeometry args={[dims.x, dims.y]} />
-	<T.MeshStandardMaterial color={colors.ceiling} transparent opacity={0.2} side={THREE.DoubleSide} depthWrite={false} />
-</T.Mesh>
+	<!-- Semi-transparent ceiling (polygon mode) -->
+	{#if floorCeilGeometry}
+		<T.Mesh geometry={floorCeilGeometry} position={[0, dims.z - 0.001, 0]} rotation.x={-Math.PI / 2}>
+			<T.MeshStandardMaterial color={colors.ceiling} transparent opacity={0.2} side={THREE.DoubleSide} depthWrite={false} />
+		</T.Mesh>
+	{/if}
 
-<!-- Wall indicators (subtle) -->
-<T.Mesh position={[0.001, dims.z / 2, -dims.y / 2]} rotation.y={Math.PI / 2}>
-	<T.PlaneGeometry args={[dims.y, dims.z]} />
-	<T.MeshStandardMaterial color={colors.walls} transparent opacity={0.1} side={THREE.DoubleSide} depthWrite={false} />
-</T.Mesh>
+	<!-- Wall indicators (polygon mode walls) -->
+	{#if polyGeometry}
+		<T.Mesh geometry={polyGeometry} material={polyMaterials} position={[0, 0, 0]} rotation.x={-Math.PI / 2} />
+	{/if}
+{:else}
+	<!-- Room wireframe box -->
+	{#if rectEdges}
+		<T.LineSegments {position}>
+			<T is={rectEdges} />
+			<T.LineBasicMaterial color={colors.wireframe} linewidth={2} />
+		</T.LineSegments>
+	{/if}
 
-<T.Mesh position={[dims.x / 2, dims.z / 2, 0.001]}>
-	<T.PlaneGeometry args={[dims.x, dims.z]} />
-	<T.MeshStandardMaterial color={colors.walls} transparent opacity={0.1} side={THREE.DoubleSide} depthWrite={false} />
-</T.Mesh>
+	<!-- Semi-transparent floor -->
+	<T.Mesh position={[dims.x / 2, 0.001, -dims.y / 2]} rotation.x={-Math.PI / 2}>
+		<T.PlaneGeometry args={[dims.x, dims.y]} />
+		<T.MeshStandardMaterial color={colors.floor} transparent opacity={0.3} side={THREE.DoubleSide} depthWrite={false} />
+	</T.Mesh>
+
+	<!-- Semi-transparent ceiling -->
+	<T.Mesh position={[dims.x / 2, dims.z - 0.001, -dims.y / 2]} rotation.x={-Math.PI / 2}>
+		<T.PlaneGeometry args={[dims.x, dims.y]} />
+		<T.MeshStandardMaterial color={colors.ceiling} transparent opacity={0.2} side={THREE.DoubleSide} depthWrite={false} />
+	</T.Mesh>
+
+	<!-- Wall indicators (subtle) -->
+	<T.Mesh position={[0.001, dims.z / 2, -dims.y / 2]} rotation.y={Math.PI / 2}>
+		<T.PlaneGeometry args={[dims.y, dims.z]} />
+		<T.MeshStandardMaterial color={colors.walls} transparent opacity={0.1} side={THREE.DoubleSide} depthWrite={false} />
+	</T.Mesh>
+
+	<T.Mesh position={[dims.x / 2, dims.z / 2, 0.001]}>
+		<T.PlaneGeometry args={[dims.x, dims.z]} />
+		<T.MeshStandardMaterial color={colors.walls} transparent opacity={0.1} side={THREE.DoubleSide} depthWrite={false} />
+	</T.Mesh>
+{/if}
 
 {#if room.showDimensions ?? true}
 <!-- Axis lines and tick marks -->

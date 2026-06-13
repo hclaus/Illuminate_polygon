@@ -47,6 +47,7 @@ export interface RoomConfig {
   x: number;
   y: number;
   z: number;
+  polygon?: [number, number][];
   standard: 'ANSI IES RP 27.1-22 (ACGIH Limits)' | 'UL8802 (ACGIH Limits)' | 'IEC 62471-6:2022 (ICNIRP Limits)';
   enable_reflectance: boolean;
   reflectances: SurfaceReflectances;

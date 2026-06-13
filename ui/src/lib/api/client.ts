@@ -961,9 +961,10 @@ export async function getEfficacyStats(params: {
 // ============================================================
 
 export interface SessionRoomConfig {
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
   z: number;
+  polygon?: [number, number][];
   units: 'meters' | 'feet';
   precision: number;
   standard: 'ANSI IES RP 27.1-22 (ACGIH Limits)' | 'UL8802 (ACGIH Limits)' | 'IEC 62471-6:2022 (ICNIRP Limits)';

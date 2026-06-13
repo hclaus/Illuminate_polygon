@@ -1,6 +1,6 @@
 """Pydantic schemas for the session router endpoints."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, Dict, Literal, Any, List
 
 from .schemas import SurfaceReflectances, SimulationZoneResult
@@ -13,9 +13,10 @@ from .defaults import OZONE_DECAY_CONSTANT as _OZONE_DECAY_CONSTANT
 
 class SessionRoomConfig(BaseModel):
     """Room configuration for session initialization"""
-    x: float = Field(..., gt=0, le=1000, description="Room width (must be positive)")
-    y: float = Field(..., gt=0, le=1000, description="Room depth (must be positive)")
+    x: Optional[float] = Field(default=None, gt=0, le=1000, description="Room width (must be positive)")
+    y: Optional[float] = Field(default=None, gt=0, le=1000, description="Room depth (must be positive)")
     z: float = Field(..., gt=0, le=100, description="Room height (must be positive)")
+    polygon: Optional[List[tuple[float, float]]] = Field(default=None, description="Coordinates of polygon room footprint")
     units: Literal["meters", "feet"] = "meters"
     precision: int = Field(default=3, ge=0, le=10)
     standard: Literal["ANSI IES RP 27.1-22 (ACGIH Limits)", "UL8802 (ACGIH Limits)", "IEC 62471-6:2022 (ICNIRP Limits)"] = "ANSI IES RP 27.1-22 (ACGIH Limits)"
@@ -30,6 +31,12 @@ class SessionRoomConfig(BaseModel):
     air_changes: float = Field(default=1.0, ge=0)
     ozone_decay_constant: float = Field(default=_OZONE_DECAY_CONSTANT, ge=0)
     colormap: str = Field(default="plasma", description="Matplotlib/Plotly colormap name")
+
+    @model_validator(mode="after")
+    def validate_dimensions(self) -> 'SessionRoomConfig':
+        if not self.polygon and (self.x is None or self.y is None):
+            raise ValueError("Either both x and y, or polygon must be specified.")
+        return self
 
 
 class SessionLampInput(BaseModel):
@@ -166,6 +173,7 @@ class SessionRoomUpdate(BaseModel):
     x: Optional[float] = Field(default=None, gt=0, le=1000)
     y: Optional[float] = Field(default=None, gt=0, le=1000)
     z: Optional[float] = Field(default=None, gt=0, le=100)
+    polygon: Optional[List[tuple[float, float]]] = Field(default=None, description="Coordinates of polygon room footprint")
     units: Optional[Literal["meters", "feet"]] = None  # Use PATCH /session/units instead
     precision: Optional[int] = Field(default=None, ge=0, le=10)
     colormap: Optional[str] = Field(default=None, description="Matplotlib/Plotly colormap name")
@@ -494,7 +502,7 @@ class SetUnitsResponse(BaseModel):
     """Response with all converted coordinates after unit change"""
     success: bool
     units: str
-    room: Dict[str, float]  # {x, y, z}
+    room: Dict[str, Any]  # {x, y, z, polygon}
     lamps: Dict[str, SetUnitsLampCoords]  # lamp_id -> coords
     zones: Dict[str, SetUnitsZoneCoords]  # zone_id -> coords
     reflectance_spacings: Optional[Dict[str, Dict[str, float]]] = None  # surface -> {x, y}
@@ -735,9 +743,10 @@ class ReflectanceSurfacesResponse(BaseModel):
 
 class LoadedRoom(BaseModel):
     """Room configuration returned after loading a project"""
-    x: float
-    y: float
+    x: Optional[float] = None
+    y: Optional[float] = None
     z: float
+    polygon: Optional[List[tuple[float, float]]] = None
     units: str
     standard: str
     precision: int
