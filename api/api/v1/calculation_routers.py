@@ -705,6 +705,7 @@ def load_session(request: dict, session: SessionCreateDep):
             x=session.room.x,
             y=session.room.y,
             z=session.room.z,
+            polygon=[list(v) for v in session.room.polygon.vertices] if session.room.is_polygon else None,
             units=loaded_units,
             standard=_standard_to_label(session.room.standard),
             precision=session.room.precision,

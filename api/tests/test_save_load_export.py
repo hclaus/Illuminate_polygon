@@ -701,3 +701,104 @@ class TestContourSettingsSaveLoad:
         assert loaded_zone["contour_settings"] is not None
         assert loaded_zone["contour_settings"]["sigma"] == 2.0
         assert loaded_zone["contour_settings"]["overlays"][0]["computer_path"] == "D:\\new\\path.png"
+
+
+class TestPolygonSaveLoad:
+    """Verify that polygon room footprints survive save and load round-trips."""
+
+    def test_polygon_init_save_load_roundtrip(self, client, session_headers):
+        poly_coords = [[0.0, 0.0], [5.0, 0.0], [5.0, 3.0], [3.0, 5.0], [0.0, 5.0]]
+        
+        # Init session with a polygon room footprint
+        resp = client.post(
+            f"{API}/session/init",
+            json={
+                "room": {
+                    "z": 3.0,
+                    "polygon": poly_coords,
+                    "units": "meters",
+                    "standard": "ANSI IES RP 27.1-22 (ACGIH Limits)"
+                },
+                "lamps": [],
+                "zones": []
+            },
+            headers=session_headers
+        )
+        assert resp.status_code == 200, resp.text
+
+        # Save and verify
+        save_resp = client.get(f"{API}/session/save", headers=session_headers)
+        assert save_resp.status_code == 200
+        saved_data = json.loads(save_resp.content)
+
+        # Check that the polygon is stored in the raw saved JSON
+        saved_rooms = saved_data["data"]["rooms"]
+        room_data = next(iter(saved_rooms.values()))
+        assert "polygon" in room_data
+        assert room_data["polygon"]["vertices"] == poly_coords
+
+        # Load into a new session
+        new_headers = _new_session(client)
+        load_resp = client.post(
+            f"{API}/session/load",
+            json=saved_data,
+            headers=new_headers,
+        )
+        assert load_resp.status_code == 200
+        loaded_data = load_resp.json()
+        assert loaded_data["success"] is True
+
+        # Check that loaded room contains the polygon
+        assert "polygon" in loaded_data["room"]
+        assert loaded_data["room"]["polygon"] == poly_coords
+
+    def test_rectangular_patch_to_polygon_save_load_roundtrip(self, client, session_headers):
+        # Init as rectangular room
+        resp = client.post(
+            f"{API}/session/init",
+            json={
+                "room": {
+                    "x": 4.0,
+                    "y": 6.0,
+                    "z": 2.7,
+                    "units": "meters",
+                    "standard": "ANSI IES RP 27.1-22 (ACGIH Limits)"
+                },
+                "lamps": [],
+                "zones": []
+            },
+            headers=session_headers
+        )
+        assert resp.status_code == 200, resp.text
+
+        # Patch to polygon
+        poly_coords = [[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [2.0, 6.0], [0.0, 6.0]]
+        patch_resp = client.patch(
+            f"{API}/session/room",
+            json={"polygon": poly_coords},
+            headers=session_headers
+        )
+        assert patch_resp.status_code == 200, patch_resp.text
+
+        # Save
+        save_resp = client.get(f"{API}/session/save", headers=session_headers)
+        assert save_resp.status_code == 200
+        saved_data = json.loads(save_resp.content)
+
+        # Verify polygon is in raw save
+        saved_rooms = saved_data["data"]["rooms"]
+        room_data = next(iter(saved_rooms.values()))
+        assert "polygon" in room_data
+        assert room_data["polygon"]["vertices"] == poly_coords
+
+        # Load
+        new_headers = _new_session(client)
+        load_resp = client.post(
+            f"{API}/session/load",
+            json=saved_data,
+            headers=new_headers,
+        )
+        assert load_resp.status_code == 200
+        loaded_data = load_resp.json()
+        assert loaded_data["room"]["polygon"] == poly_coords
+

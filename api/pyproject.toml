@@ -19,6 +19,5 @@ dev = [
 [tool.uv]
 package = false
 
-# [tool.uv.sources]
-# guv-calcs = { path = "../../guv-calcs", editable = true }
-# photompy = { path = "../../photompy", editable = true }
+[tool.uv.sources]
+guv-calcs = { path = "../../../guv-calcHC", editable = true }
