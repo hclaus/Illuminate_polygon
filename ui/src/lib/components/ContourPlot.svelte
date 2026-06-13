@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { contours as d3Contours } from 'd3-contour';
 	import { ticks as d3Ticks } from 'd3';
 	import type { CalcZone, RoomConfig } from '$lib/types/project';
@@ -265,7 +265,9 @@
 			return;
 		}
 
-		syncToStore();
+		untrack(() => {
+			syncToStore();
+		});
 	});
 	let selectedOverlayId = $state<string | null>(null);
 	let selectedOverlay = $derived(overlays.find(o => o.id === selectedOverlayId) || null);
@@ -1691,14 +1693,6 @@
 
 	<!-- Stage Viewport -->
 	<main class="contour-stage" onclick={handleStageClick}>
-		<div class="contour-title-container">
-			<input
-				type="text"
-				class="contour-title-input"
-				bind:value={plotTitle}
-				placeholder="Enter plot title..."
-			/>
-		</div>
 		<div class="contour-stage-area">
 			<div class="contour-figure-wrap" style="width: {layout.figW}px; height: {layout.figH}px;">
 				<!-- Drawing Canvas -->
@@ -2129,40 +2123,6 @@
 		overflow: auto;
 	}
 
-	.contour-title-container {
-		display: flex;
-		justify-content: center;
-		padding: 16px 16px 4px 16px;
-		background: var(--contour-bg);
-	}
-
-	.contour-title-input {
-		background: transparent;
-		border: 1px solid transparent;
-		border-bottom: 1px dashed var(--contour-line-2);
-		border-radius: 0;
-		font-family: 'IBM Plex Sans', system-ui, sans-serif;
-		font-size: 1.25rem;
-		font-weight: 600;
-		color: var(--contour-ink);
-		text-align: center;
-		padding: 6px 12px;
-		width: 100%;
-		max-width: 400px;
-		transition: all 0.2s ease;
-	}
-
-	.contour-title-input:hover {
-		background: var(--contour-panel-2);
-		border-color: var(--contour-line);
-	}
-
-	.contour-title-input:focus {
-		background: var(--contour-panel);
-		border-color: var(--contour-accent);
-		outline: none;
-		box-shadow: 0 0 0 3px var(--contour-accent-soft);
-	}
 
 	.contour-stage-area {
 		flex: 1;

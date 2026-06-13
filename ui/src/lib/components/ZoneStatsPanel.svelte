@@ -1044,46 +1044,49 @@
 
 <!-- Plane Plot Modal (3D heatmap view) -->
 {#if planePlotModalZone}
+	{@const activeZone = $zones.find(z => z.id === planePlotModalZone!.id) || planePlotModalZone!.zone}
 	<CalcPlanePlotModal
-		zone={planePlotModalZone.zone}
-		zoneName={planePlotModalZone.name}
+		zone={activeZone}
+		zoneName={planePlotModalZone!.name}
 		room={$room}
-		values={planePlotModalZone.values}
-		valueFactor={planePlotModalZone.valueFactor}
-		effectiveTlv={planePlotModalZone.zone.id === 'SkinLimits' ? effectiveLimits.skin : planePlotModalZone.zone.id === 'EyeLimits' ? effectiveLimits.eye : undefined}
+		values={planePlotModalZone!.values}
+		valueFactor={planePlotModalZone!.valueFactor}
+		effectiveTlv={activeZone.id === 'SkinLimits' ? effectiveLimits.skin : activeZone.id === 'EyeLimits' ? effectiveLimits.eye : undefined}
 		onclose={closePlanePlotModal}
-		dockId={`plane-plot-${planePlotModalZone.id}`}
+		dockId={`plane-plot-${planePlotModalZone!.id}`}
 	/>
 {/if}
 
 <!-- Volume Plot Modal (3D isosurface view) -->
 {#if volumePlotModalZone}
+	{@const activeZone = $zones.find(z => z.id === volumePlotModalZone!.id) || volumePlotModalZone!.zone}
 	<CalcVolPlotModal
-		zone={volumePlotModalZone.zone}
-		zoneName={volumePlotModalZone.name}
+		zone={activeZone}
+		zoneName={volumePlotModalZone!.name}
 		room={$room}
-		values={volumePlotModalZone.values}
-		valueFactor={volumePlotModalZone.valueFactor}
-		isoSettings={isoSettingsMap[volumePlotModalZone.id]}
-		prebuiltIsosurfaces={isoGeometryMap[volumePlotModalZone.id]?.isosurfaces}
-		prebuiltValueRange={isoGeometryMap[volumePlotModalZone.id]?.valueRange}
+		values={volumePlotModalZone!.values}
+		valueFactor={volumePlotModalZone!.valueFactor}
+		isoSettings={isoSettingsMap[volumePlotModalZone!.id]}
+		prebuiltIsosurfaces={isoGeometryMap[volumePlotModalZone!.id]?.isosurfaces}
+		prebuiltValueRange={isoGeometryMap[volumePlotModalZone!.id]?.valueRange}
 		onIsoSettingsChange={(s) => { onIsoSettingsChange?.(volumePlotModalZone!.id, s); }}
 		onclose={closeVolumePlotModal}
-		dockId={`vol-plot-${volumePlotModalZone.id}`}
+		dockId={`vol-plot-${volumePlotModalZone!.id}`}
 	/>
 {/if}
 
 <!-- Point Plot Modal -->
 {#if pointPlotModalZone}
+	{@const activeZone = $zones.find(z => z.id === pointPlotModalZone!.id) || pointPlotModalZone!.zone}
 	<CalcPointPlotModal
-		zone={pointPlotModalZone.zone}
-		zoneName={pointPlotModalZone.name}
+		zone={activeZone}
+		zoneName={pointPlotModalZone!.name}
 		room={$room}
-		value={pointPlotModalZone.value}
-		valueUnits={pointPlotModalZone.valueUnits}
-		valueFactor={pointPlotModalZone.valueFactor}
+		value={pointPlotModalZone!.value}
+		valueUnits={pointPlotModalZone!.valueUnits}
+		valueFactor={pointPlotModalZone!.valueFactor}
 		onclose={closePointPlotModal}
-		dockId={`point-plot-${pointPlotModalZone.id}`}
+		dockId={`point-plot-${pointPlotModalZone!.id}`}
 	/>
 {/if}
 

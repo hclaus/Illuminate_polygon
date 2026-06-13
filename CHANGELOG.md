@@ -23,6 +23,7 @@ run `scripts/changelog.sh` to generate entries from git history.
 - Auto-patch-bump on deploy when no release tag exists on HEAD
 
 ### Fixed
+- Fix infinite reactive loop in ContourPlot settings synchronization by untracking store updates in effect block
 - Custom IES files now correctly survive save/load cycles — dropdown and upload UI properly restored for custom lamps loaded from .guv files
 - IES file validation now accepts older LM-63-1986 format files, files with BOM, and leading blank lines
 - Loading .guv files now correctly restores directional/point zones (calc_mode, position, aim point, view_direction, etc. were silently dropped by incomplete Zod validation schema)

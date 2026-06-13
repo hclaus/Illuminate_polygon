@@ -1573,7 +1573,10 @@ function createProjectStore() {
         aim_y: zone.aim_y ?? undefined,
         aim_z: zone.aim_z ?? undefined,
         display_mode: zone.display_mode as any,
-        contour_settings: zone.contour_settings ?? undefined,
+        contour_settings: zone.contour_settings ? {
+          ...zone.contour_settings,
+          title: zone.contour_settings.title ?? undefined,
+        } : undefined,
       }));
 
       // Check if any standard zones were loaded and update room config

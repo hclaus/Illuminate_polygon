@@ -36,14 +36,6 @@
 		zone.display_mode === 'numeric' ? 'numeric' : 'heatmap'
 	);
 
-	// Sync changes reactively back to the store
-	$effect(() => {
-		const storeMode = displayMode === 'contour' ? 'contours' : displayMode;
-		if (zone.display_mode !== storeMode) {
-			project.updateZone(zone.id, { display_mode: storeMode });
-		}
-	});
-
 	// Sync changes reactively from the store back to local state
 	$effect(() => {
 		const targetMode = zone.display_mode === 'contours' ? 'contour' :
@@ -52,6 +44,13 @@
 			displayMode = targetMode;
 		}
 	});
+
+	function handleDisplayModeChange(e: Event) {
+		const newMode = (e.target as HTMLSelectElement).value as 'heatmap' | 'numeric' | 'contour';
+		displayMode = newMode;
+		const storeMode = newMode === 'contour' ? 'contours' : newMode;
+		project.updateZone(zone.id, { display_mode: storeMode });
+	}
 
 	// Axes, ticks, and tick labels toggles
 	let showAxes = $state(true);
@@ -941,7 +940,7 @@
 		<div class="modal-footer">
 			<div class="footer-controls">
 				<div class="select-group">
-					<select class="display-mode-select" bind:value={displayMode}>
+					<select class="display-mode-select" value={displayMode} onchange={handleDisplayModeChange}>
 						<option value="heatmap">Heatmap</option>
 						<option value="numeric">Numeric</option>
 						<option value="contour">Contour</option>
