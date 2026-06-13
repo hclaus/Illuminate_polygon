@@ -22,7 +22,9 @@
 	let draft = $state<UserSettings>({ ...$userSettings });
 
 	type Tab = 'room' | 'lamps' | 'zones' | 'results' | 'display';
-	let activeTab = $state<Tab>(initialTab);
+	// svelte-ignore state_referenced_locally
+	const initTab = initialTab;
+	let activeTab = $state<Tab>(initTab);
 
 	// Lamp presets (fetched from API)
 	let presets222 = $state<LampPresetInfo[]>([]);
@@ -32,7 +34,9 @@
 	let speciesByCategory = $state<Record<string, string[]>>({});
 	let speciesLoading = $state(false);
 	let expandedCategories = $state<Set<string>>(new Set());
-	let speciesWavelength = $state<number | null>(defaultSpeciesWavelength ?? null);
+	// svelte-ignore state_referenced_locally
+	const initWavelength = defaultSpeciesWavelength;
+	let speciesWavelength = $state<number | null>(initWavelength ?? null);
 	let availableWavelengths = $state<number[]>([]);
 
 	// Count of selected species per category
@@ -164,18 +168,6 @@
 		{ value: 'horizontal', label: 'Horizontal' },
 	];
 
-	// Dose time h/m/s - read directly from draft fields
-	let doseHours = $state(draft.zoneHours);
-	let doseMinutes = $state(draft.zoneMinutes);
-	let doseSeconds = $state(draft.zoneSeconds);
-
-	// Sync draft fields from local h/m/s state
-	$effect(() => {
-		draft.zoneHours = doseHours;
-		draft.zoneMinutes = doseMinutes;
-		draft.zoneSeconds = doseSeconds;
-	});
-
 	function save() {
 		// Preserve the live display units — defaults tab shouldn't change current display
 		const liveUnits = $userSettings.units;
@@ -199,13 +191,10 @@
 
 	function resetToDefaults() {
 		draft = { ...SETTINGS_DEFAULTS };
-		doseHours = SETTINGS_DEFAULTS.zoneHours;
-		doseMinutes = SETTINGS_DEFAULTS.zoneMinutes;
-		doseSeconds = SETTINGS_DEFAULTS.zoneSeconds;
 	}
 
 	// Colormap preview canvas
-	let colormapCanvas: HTMLCanvasElement;
+	let colormapCanvas = $state<HTMLCanvasElement>();
 
 	function drawColormapPreview() {
 		if (!colormapCanvas) return;
@@ -391,18 +380,18 @@
 								<span>Dose mode</span>
 							</label>
 							<div class="form-inline" style:opacity={draft.zoneDose ? 1 : 0.5}>
-								<label>Exposure time</label>
+								<span class="label">Exposure time</span>
 								<div class="time-inputs">
 									<div class="time-field">
-										<ValidatedNumberInput value={doseHours} oncommit={(v) => doseHours = v} min={0} step="any" disabled={!draft.zoneDose} />
+										<ValidatedNumberInput value={draft.zoneHours} oncommit={(v) => draft.zoneHours = v} min={0} step="any" disabled={!draft.zoneDose} />
 										<span class="time-label">h</span>
 									</div>
 									<div class="time-field">
-										<ValidatedNumberInput value={doseMinutes} oncommit={(v) => doseMinutes = v} min={0} step="any" disabled={!draft.zoneDose} />
+										<ValidatedNumberInput value={draft.zoneMinutes} oncommit={(v) => draft.zoneMinutes = v} min={0} step="any" disabled={!draft.zoneDose} />
 										<span class="time-label">m</span>
 									</div>
 									<div class="time-field">
-										<ValidatedNumberInput value={doseSeconds} oncommit={(v) => doseSeconds = v} min={0} step="any" disabled={!draft.zoneDose} />
+										<ValidatedNumberInput value={draft.zoneSeconds} oncommit={(v) => draft.zoneSeconds = v} min={0} step="any" disabled={!draft.zoneDose} />
 										<span class="time-label">s</span>
 									</div>
 								</div>
@@ -720,7 +709,8 @@
 		gap: var(--spacing-sm);
 	}
 
-	.form-inline > label {
+	.form-inline > label,
+	.form-inline > .label {
 		font-size: var(--font-size-sm);
 		font-weight: 500;
 		color: var(--color-text-muted);
@@ -798,12 +788,7 @@
 		gap: var(--spacing-sm);
 	}
 
-	/* Checkbox styling */
-	.checkbox-group {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-xs);
-	}
+
 
 	.checkbox-grid {
 		display: grid;

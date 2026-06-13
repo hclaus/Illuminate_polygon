@@ -203,6 +203,7 @@
 	}
 </script>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="viewer-container" bind:this={viewerContainer} onpointerdown={handlePointerDown} onpointerup={handlePointerUp}>
 	<ViewSnapOverlay onViewChange={handleViewChange} {activeView} />
 	<ProjectionToggle isOrtho={useOrtho} onclick={handleToggleProjection} />

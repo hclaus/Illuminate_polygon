@@ -11,8 +11,8 @@
 	let copied = $state(false);
 
 	const conceptDoi = '10.5281/zenodo.18573615';
-	const versionLabel = guvCalcsVersion ? `(v${guvCalcsVersion.replace(/^v/, '')})` : '';
-	const citation = `Belenky, V., & Claus, H. (2026). guv-calcs: An open-source Python library for modeling germicidal UV in indoor environments ${versionLabel}. Zenodo. https://doi.org/${conceptDoi}`.replace(/  +/g, ' ');
+	const versionLabel = $derived(guvCalcsVersion ? `(v${guvCalcsVersion.replace(/^v/, '')})` : '');
+	const citation = $derived(`Belenky, V., & Claus, H. (2026). guv-calcs: An open-source Python library for modeling germicidal UV in indoor environments ${versionLabel}. Zenodo. https://doi.org/${conceptDoi}`.replace(/  +/g, ' '));
 
 	async function copyCitation() {
 		try {

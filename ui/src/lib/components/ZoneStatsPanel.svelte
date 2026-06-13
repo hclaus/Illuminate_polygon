@@ -833,11 +833,11 @@
 									{@const isCompliant = lampResult.is_skin_compliant && lampResult.is_eye_compliant}
 									{@const dimmingRequired = Math.min(lampResult.skin_dimming_required, lampResult.eye_dimming_required)}
 									{@const lampWarnings = checkLampsResult.warnings?.filter((w: SafetyWarning) => w.lamp_id === lampResult.lamp_id) || []}
+									{@const lampInstance = $lamps.find(l => l.id === lampResult.lamp_id)}
 									<!-- svelte-ignore a11y_no_static_element_interactions -->
-								{@const lampInstance = $lamps.find(l => l.id === lampResult.lamp_id)}
-								<div class="lamp-compliance-item" class:lamp-compliant={isCompliant} class:lamp-non-compliant={!isCompliant}
-									onmouseenter={() => onLampHover?.(lampResult.lamp_id)}
-									onmouseleave={() => onLampHover?.(null)}>
+									<div class="lamp-compliance-item" class:lamp-compliant={isCompliant} class:lamp-non-compliant={!isCompliant}
+										onmouseenter={() => onLampHover?.(lampResult.lamp_id)}
+										onmouseleave={() => onLampHover?.(null)}>
 										<div class="lamp-compliance-header">
 											<span class="lamp-name">{lampResult.lamp_name}{#if lampInstance && lampInstance.scaling_factor !== 1} ({(lampInstance.scaling_factor * 100).toFixed(0)}%){/if}</span>
 											{#if isCompliant}
@@ -1386,9 +1386,7 @@
 		color: var(--color-non-compliant);
 	}
 
-	.safety-stat .stat-value.non-compliant {
-		color: var(--color-non-compliant);
-	}
+
 
 	/* Standard selector */
 	.standard-selector {
@@ -1746,11 +1744,7 @@
 		overflow: hidden;
 	}
 
-	.survival-plot img {
-		width: 100%;
-		height: auto;
-		display: block;
-	}
+
 
 	.loading-text {
 		font-size: var(--font-size-base);

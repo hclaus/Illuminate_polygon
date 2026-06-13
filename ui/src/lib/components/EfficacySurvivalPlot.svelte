@@ -436,6 +436,7 @@
 
 				<!-- Survival curves -->
 				{#each speciesCurves as curve}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<path
 						d={pointsToPath(curve.points, xScale, yScale)}
 						fill="none"

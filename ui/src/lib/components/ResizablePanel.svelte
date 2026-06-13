@@ -21,6 +21,7 @@
 		children
 	}: Props = $props();
 
+	// svelte-ignore state_referenced_locally
 	let width = $state(defaultWidth);
 	let isDragging = $state(false);
 	let panelElement: HTMLElement;
@@ -85,6 +86,7 @@
 	{/if}
 
 	<!-- Resize handle -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 	<div
 		class="resize-handle"
 		onmousedown={startDrag}

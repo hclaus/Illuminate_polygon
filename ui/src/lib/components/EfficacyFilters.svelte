@@ -122,7 +122,7 @@
 <div class="filters-section">
 	<div class="filter-row">
 		<div class="filter-group medium-dropdown" bind:this={mediumDropdownEl}>
-			<label>Medium</label>
+			<span class="label">Medium</span>
 			<button
 				class="dropdown-btn"
 				onclick={() => mediumDropdownOpen = !mediumDropdownOpen}
@@ -149,7 +149,7 @@
 		</div>
 
 		<div class="filter-group category-dropdown" bind:this={categoryDropdownEl}>
-			<label>Category</label>
+			<span class="label">Category</span>
 			<button
 				class="dropdown-btn"
 				onclick={() => categoryDropdownOpen = !categoryDropdownOpen}
@@ -176,7 +176,7 @@
 		</div>
 
 		<div class="filter-group wavelength-dropdown" bind:this={wavelengthDropdownEl}>
-			<label>Wavelength</label>
+			<span class="label">Wavelength</span>
 			<button
 				class="dropdown-btn"
 				onclick={() => wavelengthDropdownOpen = !wavelengthDropdownOpen}
@@ -253,7 +253,8 @@
 		min-width: 140px;
 	}
 
-	.filter-group label {
+	.filter-group label,
+	.filter-group .label {
 		font-size: 0.75rem;
 		color: var(--color-text-muted);
 		text-transform: uppercase;
@@ -261,7 +262,6 @@
 		margin: 0;
 	}
 
-	.filter-group select,
 	.filter-group input {
 		padding: var(--spacing-xs) var(--spacing-sm);
 		font-size: 0.85rem;

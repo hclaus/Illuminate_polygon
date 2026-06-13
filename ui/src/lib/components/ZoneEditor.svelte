@@ -25,6 +25,11 @@
 
 	let { zone, room, onClose, onCopy, isStandard = false, isoSettings, onIsoSettingsChange }: Props = $props();
 
+	// svelte-ignore state_referenced_locally
+	const initialZone = $state.snapshot(zone);
+	// svelte-ignore state_referenced_locally
+	const initialRoom = $state.snapshot(room);
+
 	let showDeleteConfirm = $state(false);
 	let calcModeExpanded = $state(false);
 	let refSurfaceExpanded = $state(false);
@@ -32,87 +37,87 @@
 	let offsetExpanded = $state(false);
 	let isoExpanded = $state(false);
 
-	// Local state for editing - initialize from zone
-	let type = $state<'plane' | 'volume' | 'point'>(zone?.type || 'plane');
+	// Local state for editing - initialize from initialZone
+	let type = $state<'plane' | 'volume' | 'point'>(initialZone?.type || 'plane');
 	// Migrate from legacy show_values boolean to display_mode
 	let display_mode = $state<ZoneDisplayMode>(
-		zone?.display_mode ?? (zone?.show_values === false ? 'markers' : 'heatmap')
+		initialZone?.display_mode ?? (initialZone?.show_values === false ? 'markers' : 'heatmap')
 	);
 
 	// Plane-specific settings
-	let height = $state(zone?.height ?? 1.0);
-	let calc_mode = $state<PlaneCalcMode>(zone?.calc_mode ?? 'planar_normal');
-	let ref_surface = $state<RefSurface>(zone?.ref_surface ?? 'xy');
-	let direction = $state(zone?.direction ?? 1);
-	let fov_vert = $state(zone?.fov_vert ?? 180);
-	let fov_horiz = $state(zone?.fov_horiz ?? 360);
-	let horiz = $state(zone?.horiz ?? false);
-	let vert = $state(zone?.vert ?? false);
-	let use_normal = $state(zone?.use_normal ?? false);
+	let height = $state(initialZone?.height ?? 1.0);
+	let calc_mode = $state<PlaneCalcMode>(initialZone?.calc_mode ?? 'planar_normal');
+	let ref_surface = $state<RefSurface>(initialZone?.ref_surface ?? 'xy');
+	let direction = $state(initialZone?.direction ?? 1);
+	let fov_vert = $state(initialZone?.fov_vert ?? 180);
+	let fov_horiz = $state(initialZone?.fov_horiz ?? 360);
+	let horiz = $state(initialZone?.horiz ?? false);
+	let vert = $state(initialZone?.vert ?? false);
+	let use_normal = $state(initialZone?.use_normal ?? false);
 
 	// Saved custom flags — remembered across mode switches within this editor session.
-	// Initialized from zone if already in custom mode, otherwise defaults (all-false = fluence_rate equivalent).
+	// Initialized from initialZone if already in custom mode, otherwise defaults (all-false = fluence_rate equivalent).
 	let savedCustomFlags = $state({
-		horiz: zone?.calc_mode === 'custom' ? (zone?.horiz ?? false) : false,
-		vert: zone?.calc_mode === 'custom' ? (zone?.vert ?? false) : false,
-		use_normal: zone?.calc_mode === 'custom' ? (zone?.use_normal ?? false) : false,
-		fov_vert: zone?.calc_mode === 'custom' ? (zone?.fov_vert ?? 180) : 180,
-		fov_horiz: zone?.calc_mode === 'custom' ? (zone?.fov_horiz ?? 360) : 360,
+		horiz: initialZone?.calc_mode === 'custom' ? (initialZone?.horiz ?? false) : false,
+		vert: initialZone?.calc_mode === 'custom' ? (initialZone?.vert ?? false) : false,
+		use_normal: initialZone?.calc_mode === 'custom' ? (initialZone?.use_normal ?? false) : false,
+		fov_vert: initialZone?.calc_mode === 'custom' ? (initialZone?.fov_vert ?? 180) : 180,
+		fov_horiz: initialZone?.calc_mode === 'custom' ? (initialZone?.fov_horiz ?? 360) : 360,
 	});
-	let view_dir_x = $state(zone?.view_direction?.[0] ?? 0);
-	let view_dir_y = $state(zone?.view_direction?.[1] ?? 1);
-	let view_dir_z = $state(zone?.view_direction?.[2] ?? 0);
-	let view_target_x = $state(zone?.view_target?.[0] ?? Math.round(room.x / 2 * 1000) / 1000);
-	let view_target_y = $state(zone?.view_target?.[1] ?? Math.round(room.y / 2 * 1000) / 1000);
-	let view_target_z = $state(zone?.view_target?.[2] ?? Math.round(room.z / 2 * 1000) / 1000);
+	let view_dir_x = $state(initialZone?.view_direction?.[0] ?? 0);
+	let view_dir_y = $state(initialZone?.view_direction?.[1] ?? 1);
+	let view_dir_z = $state(initialZone?.view_direction?.[2] ?? 0);
+	let view_target_x = $state(initialZone?.view_target?.[0] ?? Math.round(initialRoom.x / 2 * 1000) / 1000);
+	let view_target_y = $state(initialZone?.view_target?.[1] ?? Math.round(initialRoom.y / 2 * 1000) / 1000);
+	let view_target_z = $state(initialZone?.view_target?.[2] ?? Math.round(initialRoom.z / 2 * 1000) / 1000);
 
 	// Plane dimensions
-	let x1 = $state(zone?.x1 ?? 0);
-	let x2 = $state(zone?.x2 ?? room.x);
-	let y1 = $state(zone?.y1 ?? 0);
-	let y2 = $state(zone?.y2 ?? room.y);
+	let x1 = $state(initialZone?.x1 ?? 0);
+	let x2 = $state(initialZone?.x2 ?? initialRoom.x);
+	let y1 = $state(initialZone?.y1 ?? 0);
+	let y2 = $state(initialZone?.y2 ?? initialRoom.y);
 
 	// Volume settings
-	let x_min = $state(zone?.x_min ?? 0);
-	let x_max = $state(zone?.x_max ?? room.x);
-	let y_min = $state(zone?.y_min ?? 0);
-	let y_max = $state(zone?.y_max ?? room.y);
-	let z_min = $state(zone?.z_min ?? 0);
-	let z_max = $state(zone?.z_max ?? room.z);
+	let x_min = $state(initialZone?.x_min ?? 0);
+	let x_max = $state(initialZone?.x_max ?? initialRoom.x);
+	let y_min = $state(initialZone?.y_min ?? 0);
+	let y_max = $state(initialZone?.y_max ?? initialRoom.y);
+	let z_min = $state(initialZone?.z_min ?? 0);
+	let z_max = $state(initialZone?.z_max ?? initialRoom.z);
 
 	// Point-specific settings (round to avoid floating-point display artifacts)
 	const r = (v: number) => Math.round(v * 1e6) / 1e6;
-	let point_x = $state(r(zone?.x ?? room.x / 2));
-	let point_y = $state(r(zone?.y ?? room.y / 2));
-	let point_z = $state(r(zone?.z ?? 1.0));
+	let point_x = $state(r(initialZone?.x ?? initialRoom.x / 2));
+	let point_y = $state(r(initialZone?.y ?? initialRoom.y / 2));
+	let point_z = $state(r(initialZone?.z ?? 1.0));
 	// Aim point — source of truth; backend derives normal from aim - position
-	let aim_x = $state(r(zone?.aim_x ?? room.x / 2));
-	let aim_y = $state(r(zone?.aim_y ?? room.y / 2));
-	let aim_z = $state(r(zone?.aim_z ?? 2.0));
+	let aim_x = $state(r(initialZone?.aim_x ?? initialRoom.x / 2));
+	let aim_y = $state(r(initialZone?.aim_y ?? initialRoom.y / 2));
+	let aim_z = $state(r(initialZone?.aim_z ?? 2.0));
 	let advancedExpanded = $state(false);
 
 	// Value display settings
-	let dose = $state(zone?.dose ?? false);
-	let doseHours = $state(zone?.hours ?? 8);
-	let doseMinutes = $state(zone?.minutes ?? 0);
-	let doseSeconds = $state(zone?.seconds ?? 0);
-	let offset = $state(zone?.offset ?? true);
-	let show_label = $state(zone?.show_label ?? false);
+	let dose = $state(initialZone?.dose ?? false);
+	let doseHours = $state(initialZone?.hours ?? 8);
+	let doseMinutes = $state(initialZone?.minutes ?? 0);
+	let doseSeconds = $state(initialZone?.seconds ?? 0);
+	let offset = $state(initialZone?.offset ?? true);
+	let show_label = $state(initialZone?.show_label ?? false);
 
 	// Grid resolution settings
-	let resolutionMode = $state(zone?.resolution_mode ?? 'num_points');
+	let resolutionMode = $state(initialZone?.resolution_mode ?? 'num_points');
 
 	// Default num_points based on room size (approx 0.5m spacing, cell model matches guv_calcs)
 	function defaultNumPoints(span: number): number {
 		return Math.max(10, Math.round(span / 0.5));
 	}
 
-	let num_x = $state(zone?.num_x ?? defaultNumPoints(room.x));
-	let num_y = $state(zone?.num_y ?? defaultNumPoints(room.y));
-	let num_z = $state(zone?.num_z ?? defaultNumPoints(room.z));
-	let x_spacing = $state(zone?.x_spacing ?? 0.5);
-	let y_spacing = $state(zone?.y_spacing ?? 0.5);
-	let z_spacing = $state(zone?.z_spacing ?? 0.5);
+	let num_x = $state(initialZone?.num_x ?? defaultNumPoints(initialRoom.x));
+	let num_y = $state(initialZone?.num_y ?? defaultNumPoints(initialRoom.y));
+	let num_z = $state(initialZone?.num_z ?? defaultNumPoints(initialRoom.z));
+	let x_spacing = $state(initialZone?.x_spacing ?? 0.5);
+	let y_spacing = $state(initialZone?.y_spacing ?? 0.5);
+	let z_spacing = $state(initialZone?.z_spacing ?? 0.5);
 
 	// Sync local state when zone prop changes (e.g. unit conversion updates store values)
 	$effect(() => {
@@ -329,7 +334,7 @@
 	// Auto-save when any field changes (debounced to prevent cascading updates)
 	let saveTimeout: ReturnType<typeof setTimeout>;
 	let isInitialized = false;
-	let lastZoneId = zone?.id;
+	let lastZoneId = initialZone?.id;
 
 	// Track which grid fields were explicitly changed by user (not computed from mode toggle)
 	// This prevents mode toggles from triggering unnecessary saves
@@ -533,7 +538,7 @@
 	}
 
 	// Handle calc_mode change — save custom flags when leaving custom, restore when entering
-	let prevCalcMode: PlaneCalcMode = zone?.calc_mode ?? 'planar_normal';
+	let prevCalcMode: PlaneCalcMode = initialZone?.calc_mode ?? 'planar_normal';
 	function handleCalcModeChange() {
 		if (prevCalcMode === 'custom') {
 			savedCustomFlags = { horiz, vert, use_normal, fov_vert, fov_horiz };
@@ -766,6 +771,7 @@
 
 	{#if !isStandard}
 		<div class="form-group">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label>Type</label>
 			<div class="zone-type-buttons">
 				<button
@@ -886,6 +892,7 @@
 	{#if type === 'plane' && !isStandard}
 		<!-- Plane-specific settings -->
 		<div class="form-group">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label>Calculation Type</label>
 			<button
 				type="button"
@@ -920,6 +927,7 @@
 
 		{#if calc_mode === 'eye_directional'}
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>View Direction</label>
 				<div class="vector-row">
 					<span class="vector-label">X</span>
@@ -952,6 +960,7 @@
 			</div>
 		{:else if calc_mode === 'eye_target'}
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>Target Point ({unitAbbrev($userSettings.units)})</label>
 				<div class="vector-row">
 					<span class="vector-label">X</span>
@@ -990,6 +999,7 @@
 
 		{#if calc_mode === 'custom'}
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>Custom Flags</label>
 				<div class="custom-flags">
 					<label class="toggle-row">
@@ -1013,6 +1023,7 @@
 
 		<div class="form-row two-col">
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>Reference Surface</label>
 				<button
 					type="button"
@@ -1043,6 +1054,7 @@
 			</div>
 
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>Normal Direction</label>
 				{#if showDirectionSelector}
 					<button
@@ -1143,6 +1155,7 @@
 		{#if ref_surface === 'xy'}
 			<!-- Horizontal plane: X and Y ranges -->
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>X Range</label>
 				<div class="range-row">
 					<input type="text" inputmode="decimal" value={displayDimension(x1, room.precision)} onchange={(e) => x1 = parseFloat((e.target as HTMLInputElement).value) || 0} placeholder="Min" />
@@ -1151,6 +1164,7 @@
 				</div>
 			</div>
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>Y Range</label>
 				<div class="range-row">
 					<input type="text" inputmode="decimal" value={displayDimension(y1, room.precision)} onchange={(e) => y1 = parseFloat((e.target as HTMLInputElement).value) || 0} placeholder="Min" />
@@ -1164,6 +1178,7 @@
 		{:else if ref_surface === 'xz'}
 			<!-- Vertical plane (XZ): X and Z ranges -->
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>X Range</label>
 				<div class="range-row">
 					<input type="text" inputmode="decimal" value={displayDimension(x1, room.precision)} onchange={(e) => x1 = parseFloat((e.target as HTMLInputElement).value) || 0} placeholder="Min" />
@@ -1172,6 +1187,7 @@
 				</div>
 			</div>
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>Z Range</label>
 				<div class="range-row">
 					<input type="text" inputmode="decimal" value={displayDimension(z_min, room.precision)} onchange={(e) => z_min = parseFloat((e.target as HTMLInputElement).value) || 0} placeholder="Min" />
@@ -1185,6 +1201,7 @@
 		{:else}
 			<!-- Vertical plane (YZ): Y and Z ranges -->
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>Y Range</label>
 				<div class="range-row">
 					<input type="text" inputmode="decimal" value={displayDimension(y1, room.precision)} onchange={(e) => y1 = parseFloat((e.target as HTMLInputElement).value) || 0} placeholder="Min" />
@@ -1193,6 +1210,7 @@
 				</div>
 			</div>
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>Z Range</label>
 				<div class="range-row">
 					<input type="text" inputmode="decimal" value={displayDimension(z_min, room.precision)} onchange={(e) => z_min = parseFloat((e.target as HTMLInputElement).value) || 0} placeholder="Min" />
@@ -1208,11 +1226,13 @@
 
 	{#if type === 'volume' && !isStandard}
 		<div class="form-group">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label>Calculation Type</label>
 			<span class="readonly-value">{isFluenceCalc(zone) ? 'Fluence Rate' : 'Irradiance'}</span>
 		</div>
 		<!-- Volume dimensions -->
 		<div class="form-group">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label>X Range</label>
 			<div class="range-row">
 				<input type="text" inputmode="decimal" value={displayDimension(x_min, room.precision)} onchange={(e) => x_min = parseFloat((e.target as HTMLInputElement).value) || 0} placeholder="Min" />
@@ -1222,6 +1242,7 @@
 		</div>
 
 		<div class="form-group">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label>Y Range</label>
 			<div class="range-row">
 				<input type="text" inputmode="decimal" value={displayDimension(y_min, room.precision)} onchange={(e) => y_min = parseFloat((e.target as HTMLInputElement).value) || 0} placeholder="Min" />
@@ -1231,6 +1252,7 @@
 		</div>
 
 		<div class="form-group">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label>Z Range</label>
 			<div class="range-row">
 				<input type="text" inputmode="decimal" value={displayDimension(z_min, room.precision)} onchange={(e) => z_min = parseFloat((e.target as HTMLInputElement).value) || 0} placeholder="Min" />
@@ -1246,6 +1268,7 @@
 	{#if type === 'point' && !isStandard}
 		<!-- Point position -->
 		<div class="form-group">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label>Position ({unitAbbrev($userSettings.units)})</label>
 			<div class="vector-row">
 				<span class="vector-label">X</span>
@@ -1281,6 +1304,7 @@
 
 		<!-- Aim point — normal is derived as aim - position -->
 		<div class="form-group">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label>Aim Point ({unitAbbrev($userSettings.units)})</label>
 			<div class="vector-row">
 				<span class="vector-label">X</span>
@@ -1321,6 +1345,7 @@
 	<!-- Grid Resolution -->
 	<div class="form-group">
 		<div class="resolution-header">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label>{resolutionMode === 'num_points' ? 'Grid Points' : 'Spacing'}</label>
 			<button type="button" class="mode-switch-btn" onclick={toggleResolutionMode}>
 				{resolutionMode === 'num_points' ? 'Set Spacing' : 'Set Num Points'}
@@ -1424,6 +1449,7 @@
 
 		{#if dose}
 			<div class="form-group">
+				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label>Exposure Time</label>
 				<div class="time-inputs">
 					<div class="time-field">
@@ -1496,6 +1522,7 @@
 
 	{#if type !== 'point'}
 	<div class="form-group">
+		<!-- svelte-ignore a11y_label_has_associated_control -->
 		<label>Grid Offset</label>
 		<button
 			type="button"
@@ -1529,6 +1556,7 @@
 	</div>
 
 	<div class="form-group">
+		<!-- svelte-ignore a11y_label_has_associated_control -->
 		<label>Display</label>
 		<div class="zone-type-buttons">
 			<button
@@ -1607,6 +1635,7 @@
 			{#if isoExpanded}
 				<div class="iso-expanded-content">
 					<div class="iso-header">
+						<!-- svelte-ignore a11y_label_has_associated_control -->
 						<label>Surfaces</label>
 						<div class="iso-count-controls">
 							<button type="button" class="iso-count-btn" onclick={isoRemoveSurface} disabled={!isoSettings || isoSettings.surfaceCount <= 1} title="Remove level">&minus;</button>

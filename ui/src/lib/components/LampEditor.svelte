@@ -978,7 +978,7 @@
 		{#if isCustomLamp}
 			<div class="file-upload-section">
 				<div class="form-group">
-					<label>
+					<label for="ies-file-input-{lamp.id}">
 						IES Photometric File
 						{#if lamp_type === 'lp_254' || lamp_type === 'other'}
 							<span class="required">(required)</span>
@@ -987,6 +987,7 @@
 						{/if}
 					</label>
 					<input
+						id="ies-file-input-{lamp.id}"
 						type="file"
 						accept=".ies"
 						bind:this={iesFileInput}
@@ -1025,11 +1026,12 @@
 			{#if canUploadSpectrum}
 				<div class="file-upload-section">
 					<div class="form-group">
-						<label>
+						<label for="spectrum-file-input-{lamp.id}">
 							Spectrum File
 							<span class="optional">(optional)</span>
 						</label>
 						<input
+							id="spectrum-file-input-{lamp.id}"
 							type="file"
 							accept=".csv,.xls,.xlsx"
 							bind:this={spectrumFileInput}
@@ -1102,7 +1104,7 @@
 		{/if}
 
 		<div class="form-group">
-			<label class="section-label">Position ({unitAbbrev($userSettings.units)})</label>
+			<span class="section-label">Position ({unitAbbrev($userSettings.units)})</span>
 			<div class="vector-row">
 				<span class="vector-label">X</span>
 				<ValidatedNumberInput value={x} precision={room.precision} oncommit={(v) => { x = v; }} min={0} max={room.x} step={0.1} />
@@ -1153,7 +1155,7 @@
 
 		{#if !useTiltMode}
 			<div class="form-group">
-				<label class="section-label">Aim Point ({unitAbbrev($userSettings.units)})</label>
+				<span class="section-label">Aim Point ({unitAbbrev($userSettings.units)})</span>
 				<div class="vector-row">
 					<span class="vector-label">X</span>
 					<ValidatedNumberInput value={aimx} precision={room.precision} oncommit={(v) => { aimx = v; }} step={0.1} />
@@ -1197,7 +1199,7 @@
 			</div>
 		{:else}
 			<div class="form-group">
-				<label class="section-label">Tilt / Orientation (degrees)</label>
+				<span class="section-label">Tilt / Orientation (degrees)</span>
 				<div class="form-row">
 					<div>
 						<span class="input-label">Tilt</span>
@@ -1222,7 +1224,7 @@
 		{/if}
 
 		<div class="form-group">
-			<label class="section-label">Rotation (degrees)</label>
+			<span class="section-label">Rotation (degrees)</span>
 			<div class="form-row">
 				<div>
 					<input type="text" inputmode="decimal" data-scroll-step="1" value={angle.toFixed(1)} onchange={(e) => angle = parseFloat((e.target as HTMLInputElement).value) || 0} />
@@ -1307,7 +1309,7 @@
 
 				<div class="column-picker-list">
 					{#each parsedSpectrum!.series as s, i}
-						<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 						<div
 							class="column-option"
 							class:selected={selectedColumnIndex === i}
@@ -1632,9 +1634,7 @@
 		white-space: nowrap;
 	}
 
-	.column-label {
-		/* handled by parent .column-option-text */
-	}
+
 
 	.column-peak {
 		color: var(--color-text-muted);

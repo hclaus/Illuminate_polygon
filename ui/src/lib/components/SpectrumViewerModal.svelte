@@ -22,8 +22,8 @@
 	let normalized = $state(false);
 	let editingIndex: number | null = $state(null);
 	let editingValue = $state('');
-	let fileInput: HTMLInputElement;
-	let chartComponent: SpectrumChart;
+	let fileInput = $state<HTMLInputElement>();
+	let chartComponent = $state<SpectrumChart>();
 
 	const chartSeries = $derived(
 		series.map((s, i) => {
@@ -125,7 +125,7 @@
 					onchange={handleFileChange}
 					style="display: none"
 				/>
-				<button type="button" class="select-file-btn" onclick={() => fileInput.click()}>
+				<button type="button" class="select-file-btn" onclick={() => fileInput?.click()}>
 					Select File
 				</button>
 				{#if fileName}

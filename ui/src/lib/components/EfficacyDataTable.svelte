@@ -241,9 +241,7 @@
 </div>
 
 <style>
-	.table-section {
-		/* Allow table section to fill remaining space */
-	}
+
 
 	.table-header-row {
 		display: flex;

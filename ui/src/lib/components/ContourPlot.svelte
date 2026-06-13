@@ -64,6 +64,7 @@
 	});
 
 	let activePreset = $state(getDefaultPresetName());
+	// svelte-ignore state_referenced_locally
 	let plotTitle = $state(zone.contour_settings?.title ?? zone.name ?? zone.id ?? '');
 
 	let lampTlvAcgihSkin = $state(479);
@@ -1573,11 +1574,13 @@
 					</div>
 				</div>
 				<div class="contour-field">
-					<label>Floor color <span class="contour-hint">below lowest level</span></label>
+					<span class="label">Floor color <span class="contour-hint">below lowest level</span></span>
 					<div class="contour-row gap center">
 						<button
 							class="contour-swatch big"
 							style="background: {floorColor};"
+							aria-label="Floor color"
+							title="Change floor color"
 							onclick={() => {
 								const input = document.createElement('input');
 								input.type = 'color';
@@ -1692,6 +1695,7 @@
 	</aside>
 
 	<!-- Stage Viewport -->
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 	<main class="contour-stage" onclick={handleStageClick}>
 		<div class="contour-stage-area">
 			<div class="contour-figure-wrap" style="width: {layout.figW}px; height: {layout.figH}px;">
@@ -1826,7 +1830,8 @@
 		margin-bottom: 0;
 	}
 
-	.contour-field > label {
+	.contour-field > label,
+	.contour-field > .label {
 		display: block;
 		font-size: 0.75rem;
 		font-weight: 500;

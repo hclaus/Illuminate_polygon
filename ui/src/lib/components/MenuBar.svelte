@@ -393,7 +393,7 @@
 {#if mobileMenuOpen}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="mobile-menu-backdrop" onclick={closeMobileMenu} onkeydown={(e) => e.key === 'Escape' && closeMobileMenu()}></div>
-	<nav class="mobile-menu-overlay" role="navigation" aria-label="Main menu">
+	<nav class="mobile-menu-overlay" aria-label="Main menu">
 		<div class="mobile-menu-header">
 			<span class="mobile-menu-heading">Menu</span>
 			<button class="mobile-menu-close" onclick={closeMobileMenu} aria-label="Close menu">

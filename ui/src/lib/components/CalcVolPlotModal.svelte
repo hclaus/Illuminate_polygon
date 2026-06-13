@@ -64,9 +64,11 @@
 	let showXYZMarker = $state(false);
 
 	// Iso level controls (initialized from persisted settings if available)
-	let surfaceCount = $state(isoSettings?.surfaceCount ?? 3);
+	// svelte-ignore state_referenced_locally
+	const initIsoSettings = $state.snapshot(isoSettings);
+	let surfaceCount = $state(initIsoSettings?.surfaceCount ?? 3);
 	const MAX_SURFACES = 5;
-	let customLevels = $state<number[] | null>(isoSettings?.customLevels ?? null);
+	let customLevels = $state<number[] | null>(initIsoSettings?.customLevels ?? null);
 	// Skip the full-array scan when customLevels is set (activeLevels won't use autoLevels)
 	const autoLevels = $derived(customLevels ? [] : calculateIsoLevels(values, surfaceCount));
 	const activeLevels = $derived(customLevels ?? autoLevels);
@@ -75,7 +77,7 @@
 	const valueRange = $derived(prebuiltValueRange ?? { min: 0, max: 0, range: 1 });
 
 	// Per-surface color overrides (null = use colormap default)
-	let customColors = $state<(string | null)[]>(isoSettings?.customColors ?? []);
+	let customColors = $state<(string | null)[]>(initIsoSettings?.customColors ?? []);
 
 	// Colors come pre-resolved from the parent via isoSettings.resolvedColors
 	const activeColors = $derived(isoSettings?.resolvedColors ?? []);

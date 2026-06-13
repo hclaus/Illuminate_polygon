@@ -36,7 +36,7 @@
 <div class="room-editor">
 	<!-- Dimensions with Units -->
 	<div class="form-group">
-		<label>Dimensions</label>
+		<span class="room-label">Dimensions</span>
 		<div class="dimensions-row">
 			<div class="dim-inputs">
 				<div class="input-with-label">
@@ -162,7 +162,7 @@
 		width: 100%;
 	}
 
-	label {
+	label, .room-label {
 		font-size: var(--font-size-base);
 		color: var(--color-text-muted);
 	}

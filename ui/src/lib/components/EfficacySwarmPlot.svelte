@@ -921,8 +921,8 @@
 
 				<!-- Data points (beeswarm) -->
 				{#each scatterPoints as point}
-					<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 					{#if point.shape === 'square'}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 						<rect
 							x={point.x - pointRadius}
 							y={point.y - pointRadius}
@@ -943,6 +943,7 @@
 							}}
 						/>
 					{:else if point.shape === 'diamond'}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 						<path
 							d="M{point.x},{point.y - pointRadius * 1.2} L{point.x + pointRadius},{point.y} L{point.x},{point.y + pointRadius * 1.2} L{point.x - pointRadius},{point.y}Z"
 							fill={point.color}
@@ -960,6 +961,7 @@
 							}}
 						/>
 					{:else}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 						<circle
 							cx={point.x}
 							cy={point.y}

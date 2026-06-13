@@ -48,6 +48,7 @@
 	});
 
 	// Re-fetch when a spectrum upload completes while the modal is open
+	// svelte-ignore state_referenced_locally
 	let prevSpectrumUploading = $state(spectrumUploading);
 	$effect(() => {
 		const uploading = spectrumUploading;
@@ -294,7 +295,7 @@
 					<div class="plot-section">
 						<h3 class="section-label">Photometric Distribution</h3>
 						{#if lampInfo.photometric_plot_base64}
-							<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+							<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 							<img
 								src="data:image/png;base64,{lampInfo.photometric_plot_base64}"
 								alt="Photometric distribution polar plot"
@@ -359,10 +360,10 @@
 				{:else if lampInfo.has_spectrum}
 					{#if !hasIes && 'spectrum_linear_plot_base64' in lampInfo && lampInfo.spectrum_linear_plot_base64}
 						<!-- Dual side-by-side spectrum plots when no IES -->
-						<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
 						<div class="dual-spectrum">
 							<div class="spectrum-section">
 								<h3 class="section-label">Spectrum (Linear)</h3>
+								<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 								<img
 									src="data:image/png;base64,{lampInfo.spectrum_linear_plot_base64}"
 									alt="Spectral distribution (linear scale)"
@@ -373,6 +374,7 @@
 							<div class="spectrum-section">
 								<h3 class="section-label">Spectrum (Log)</h3>
 								{#if 'spectrum_log_plot_base64' in lampInfo && lampInfo.spectrum_log_plot_base64}
+									<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 									<img
 										src="data:image/png;base64,{lampInfo.spectrum_log_plot_base64}"
 										alt="Spectral distribution (log scale)"
@@ -397,7 +399,7 @@
 								</button>
 							</div>
 							{#if lampInfo.spectrum_plot_base64}
-								<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+								<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 								<img
 									src="data:image/png;base64,{lampInfo.spectrum_plot_base64}"
 									alt="Spectral distribution plot"
@@ -463,7 +465,7 @@
 {/if}
 
 {#if expandedImageType}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div class="lightbox-backdrop" onclick={handleLightboxClick}>
 		{#if expandedImage}
 			<img src={expandedImage} alt="Expanded plot" class="lightbox-image" />

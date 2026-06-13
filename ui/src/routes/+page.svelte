@@ -995,6 +995,7 @@
 							{#each $lamps as lamp (lamp.id)}
 								{@const lampEyeActive = lampsLayerVisible && lamp.visible !== false}
 								<li class="item-list-item" class:calc-disabled={lamp.enabled === false} data-lamp-id={lamp.id}>
+									<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 									<div
 										class="item-list-row clickable"
 										class:expanded={editingLamps[lamp.id]}
@@ -1016,6 +1017,7 @@
 												/>
 											{:else}
 												<span class="lamp-name-row">
+													<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 													<span
 														class="lamp-name"
 														onclick={(e) => e.stopPropagation()}
@@ -1168,6 +1170,7 @@
 								{#each standardZonesList as zone (zone.id)}
 									{@const zoneEyeActive = zonesLayerVisible && zone.visible !== false}
 									<li class="item-list-item standard-zone" class:calc-disabled={zone.enabled === false} data-zone-id={zone.id}>
+										<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 										<div
 											class="item-list-row clickable"
 											class:expanded={editingZones[zone.id]}
@@ -1257,6 +1260,7 @@
 								{#each customZonesList as zone (zone.id)}
 									{@const zoneEyeActive = zonesLayerVisible && zone.visible !== false}
 									<li class="item-list-item" class:calc-disabled={zone.enabled === false} data-zone-id={zone.id}>
+										<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 										<div
 											class="item-list-row clickable"
 											class:expanded={editingZones[zone.id]}
@@ -1279,6 +1283,7 @@
 												{:else}
 													<span class="zone-name-row">
 														<CalcTypeIllustration type={zone.type === 'volume' ? 'calc_vol' : zone.type === 'point' ? 'calc_point' : 'calc_plane'} size={16} />
+														<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 														<span
 															class="zone-name"
 															onclick={(e) => e.stopPropagation()}
@@ -1925,9 +1930,7 @@
 		margin-bottom: 0;
 	}
 
-	.panel-content {
-		/* Smooth transition could be added here if desired */
-	}
+
 
 	/* --- Icon toggle buttons (eye/calculator in sidebar rows) --- */
 	.icon-toggle {
