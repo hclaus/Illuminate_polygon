@@ -53,6 +53,7 @@
 	let equalAspect = $state(true);
 	const flipY = $derived(!shouldFlipV);
 	let useLampLimits = $state(false);
+	let useRawDataLimits = $state(false);
 	let exportScale = $state(2);
 	const isSkin = $derived((zone.name || zone.id || '').toLowerCase().includes('skin'));
 	const isDose = $derived(zone.dose === true || valueUnits.toLowerCase().includes('mj'));
@@ -103,6 +104,7 @@
 
 	$effect(() => {
 		if (useLampLimits) {
+			useRawDataLimits = false;
 			const acgih = isSkin ? lampTlvAcgihSkin : lampTlvAcgihEye;
 			const icnirp = isSkin ? lampTlvIcnirpSkin : lampTlvIcnirpEye;
 
@@ -128,6 +130,21 @@
 
 			labelsStr = 'ICNIRP, 20% ACGIH, 40% ACGIH, 60% ACGIH, 100% ACGIH, ACGIH 4hrs';
 			activePreset = lampSpecificLimitsName;
+		}
+	});
+
+	$effect(() => {
+		if (useRawDataLimits) {
+			useLampLimits = false;
+			const pctLevels = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+			const derivedLevels = pctLevels.map(pct => pct * valMax);
+			levelsStr = derivedLevels.map(v => {
+				if (Number.isInteger(v)) return v.toString();
+				return parseFloat(v.toFixed(3)).toString();
+			}).join(', ');
+
+			labelsStr = '5%, 10%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90%, 100%';
+			activePreset = 'Raw Data Levels';
 		}
 	});
 
@@ -168,10 +185,10 @@
 			floorColor: '#00A24A'
 		},
 		{
-			name: 'Sequential (5 levels)',
-			levels: '0.2, 0.4, 0.6, 0.8, 1.0',
-			labels: 'L1, L2, L3, L4, L5',
-			colors: '#fee5d9, #fcae91, #fb6a4a, #de2d26, #a50f15',
+			name: 'Raw Data Levels',
+			levels: '0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0',
+			labels: '5%, 10%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90%, 100%',
+			colors: '#1e3a8a, #2563eb, #3b82f6, #06b6d4, #0d9488, #10b981, #84cc16, #eab308, #f97316, #ef4444, #dc2626',
 			floorColor: '#ffffff'
 		}
 	];
@@ -223,6 +240,7 @@
 			equalAspect,
 			flipY,
 			useLampLimits,
+			useRawDataLimits,
 			exportScale,
 			activePreset,
 			title: plotTitle,
@@ -318,10 +336,19 @@
 	function applyPreset(name: string) {
 		const p = BUILT_IN_PRESETS.find(x => x.name === name) || customPresets.find(x => x.name === name);
 		if (p) {
-			levelsStr = p.levels;
-			labelsStr = p.labels;
-			colorsStr = p.colors;
-			floorColor = p.floorColor;
+			if (name === 'Raw Data Levels') {
+				useRawDataLimits = true;
+				useLampLimits = false;
+				colorsStr = p.colors;
+				floorColor = p.floorColor;
+			} else {
+				useRawDataLimits = false;
+				useLampLimits = false;
+				levelsStr = p.levels;
+				labelsStr = p.labels;
+				colorsStr = p.colors;
+				floorColor = p.floorColor;
+			}
 			activePreset = name;
 		}
 	}
@@ -330,9 +357,15 @@
 		const val = (e.target as HTMLSelectElement).value;
 		if (val === lampSpecificLimitsName) {
 			useLampLimits = true;
+			useRawDataLimits = false;
 			activePreset = lampSpecificLimitsName;
+		} else if (val === 'Raw Data Levels') {
+			useLampLimits = false;
+			useRawDataLimits = true;
+			applyPreset(val);
 		} else if (val !== '__custom__') {
 			useLampLimits = false;
+			useRawDataLimits = false;
 			applyPreset(val);
 		}
 	}
@@ -1357,6 +1390,7 @@
 			contourLabels = s.contourLabels;
 			equalAspect = s.equalAspect;
 			useLampLimits = s.useLampLimits ?? false;
+			useRawDataLimits = s.useRawDataLimits ?? (s.activePreset === 'Raw Data Levels');
 			exportScale = s.exportScale;
 			activePreset = s.activePreset === 'Lamp specific limits' ? lampSpecificLimitsName : s.activePreset;
 			plotTitle = s.title ?? zone.name ?? zone.id ?? '';
@@ -1516,7 +1550,7 @@
 				<h3 class="contour-card-title">Presets</h3>
 				<div class="contour-field">
 					<div class="contour-row gap">
-						<select class="contour-select grow" value={useLampLimits ? lampSpecificLimitsName : activePreset} onchange={handlePresetChange}>
+						<select class="contour-select grow" value={useLampLimits ? lampSpecificLimitsName : (useRawDataLimits ? 'Raw Data Levels' : activePreset)} onchange={handlePresetChange}>
 							{#if useLampLimits}
 								<option value={lampSpecificLimitsName}>{lampSpecificLimitsName}</option>
 							{/if}
@@ -1545,15 +1579,15 @@
 				<h3 class="contour-card-title">Thresholds</h3>
 				<div class="contour-field">
 					<label for="levels">Levels <span class="contour-hint">comma-separated</span></label>
-					<input id="levels" type="text" class="contour-text mono" bind:value={levelsStr} oninput={() => { activePreset = '__custom__'; useLampLimits = false; }} disabled={useLampLimits} />
+					<input id="levels" type="text" class="contour-text mono" bind:value={levelsStr} oninput={() => { activePreset = '__custom__'; useLampLimits = false; useRawDataLimits = false; }} disabled={useLampLimits || useRawDataLimits} />
 				</div>
 				<div class="contour-field">
 					<label for="labels">Labels</label>
-					<input id="labels" type="text" class="contour-text" bind:value={labelsStr} oninput={() => { activePreset = '__custom__'; useLampLimits = false; }} disabled={useLampLimits} />
+					<input id="labels" type="text" class="contour-text" bind:value={labelsStr} oninput={() => { activePreset = '__custom__'; useLampLimits = false; useRawDataLimits = false; }} disabled={useLampLimits || useRawDataLimits} />
 				</div>
 				<div class="contour-field">
 					<label for="colors">Band colors</label>
-					<input id="colors" type="text" class="contour-text mono" bind:value={colorsStr} oninput={() => activePreset = '__custom__'} />
+					<input id="colors" type="text" class="contour-text mono" bind:value={colorsStr} oninput={() => { activePreset = '__custom__'; useRawDataLimits = false; }} />
 					<div class="contour-swatch-row">
 						{#each parsedColors as c, i}
 							<button
@@ -1569,6 +1603,7 @@
 										arr[i] = input.value;
 										colorsStr = arr.join(', ');
 										activePreset = '__custom__';
+										useRawDataLimits = false;
 									};
 									input.click();
 								}}
@@ -1591,6 +1626,7 @@
 								input.oninput = () => {
 									floorColor = input.value;
 									activePreset = '__custom__';
+									useRawDataLimits = false;
 								};
 								input.click();
 							}}

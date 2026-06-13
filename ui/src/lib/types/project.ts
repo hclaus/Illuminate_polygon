@@ -156,6 +156,7 @@ export interface ContourSettings {
   equalAspect: boolean;
   flipY: boolean;
   useLampLimits: boolean;
+  useRawDataLimits: boolean;
   exportScale: number;
   activePreset: string;
   title?: string;

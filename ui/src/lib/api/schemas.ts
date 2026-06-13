@@ -252,6 +252,7 @@ export const ContourSettingsSchema = z.object({
   equalAspect: z.boolean().optional().default(true),
   flipY: z.boolean().optional().default(false),
   useLampLimits: z.boolean().optional().default(false),
+  useRawDataLimits: z.boolean().optional().default(false),
   exportScale: z.number().optional().default(1),
   activePreset: z.string().optional().default("manual"),
   title: z.string().nullish(),
