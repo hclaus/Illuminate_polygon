@@ -377,6 +377,9 @@
         <div class="sidebar">
             <div class="sidebar-section">
                 <h3 class="section-title">Editor Actions</h3>
+                <div class="btn-group" id="apply-container" style="display: none; margin-bottom: 12px;">
+                    <button class="btn btn-primary" id="btn-apply" style="background: var(--success); border-color: var(--success); width: 100%;">Apply to Room</button>
+                </div>
                 <div class="btn-group">
                     <button class="btn btn-primary" id="btn-close">Close Loop</button>
                     <button class="btn btn-danger" id="btn-clear">Clear All</button>
@@ -450,6 +453,8 @@
         const selectSnap = document.getElementById('select-snap');
         const selectWidth = document.getElementById('select-width');
         const btnCopy = document.getElementById('btn-copy');
+        const btnApply = document.getElementById('btn-apply');
+        const applyContainer = document.getElementById('apply-container');
 
         // State variables
         let vertices = []; // Array of {x, y} in meters
@@ -461,6 +466,35 @@
         let hoveredIndex = -1;
         let draggedIndex = -1;
         let mouseMeters = { x: 0, y: 0 };
+
+        // Show apply button if opened as a popup from the main app
+        if (window.opener) {
+            applyContainer.style.display = 'flex';
+        }
+
+        // Load initial polygon from URL parameters if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const polyParam = urlParams.get('polygon');
+        if (polyParam) {
+            try {
+                const parsed = JSON.parse(decodeURIComponent(polyParam));
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    vertices = parsed.map(v => ({ x: v[0], y: v[1] }));
+                    isClosed = true;
+                    // Auto-detect maxRoomWidth based on vertices bounds
+                    const maxX = Math.max(...vertices.map(v => v.x));
+                    const maxY = Math.max(...vertices.map(v => v.y));
+                    const maxVal = Math.max(maxX, maxY, 5);
+                    const widths = [5, 10, 15, 20, 30];
+                    maxRoomWidth = widths.find(w => w >= maxVal) || 30;
+                    if (selectWidth) {
+                        selectWidth.value = maxRoomWidth.toString();
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to parse initial polygon:", e);
+            }
+        }
 
         // Scale and Pan calculations
         let scale = 1; // pixels per meter
@@ -896,16 +930,37 @@
             initCanvas();
         });
 
-        // Copy button handler
-        btnCopy.addEventListener('click', () => {
-            codeOutput.select();
-            document.execCommand('copy');
-            
-            // Show toast
+        function showToast(message) {
+            toast.textContent = message;
             toast.classList.add('show');
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 2000);
+        }
+
+        // Copy button handler
+        btnCopy.addEventListener('click', () => {
+            codeOutput.select();
+            document.execCommand('copy');
+            showToast("Copied to clipboard!");
+        });
+
+        // Apply to Room handler
+        btnApply.addEventListener('click', () => {
+            if (vertices.length < 3 || !isClosed) {
+                showToast("Please close the polygon loop first!");
+                return;
+            }
+            if (window.opener) {
+                const polyData = vertices.map(v => [v.x, v.y]);
+                window.opener.postMessage({
+                    type: 'polygon_update',
+                    vertices: polyData
+                }, window.location.origin);
+                showToast("Applied to Room successfully!");
+            } else {
+                showToast("Error: No opener window found!");
+            }
         });
 
         // Theme Switcher Button Handler

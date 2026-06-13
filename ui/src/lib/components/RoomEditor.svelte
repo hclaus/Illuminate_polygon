@@ -59,8 +59,23 @@
 	}
 
 	function openPolygonBuilder() {
-		window.open('/polygon_builder.html', '_blank');
+		const polyStr = JSON.stringify($room.polygon || []);
+		window.open(`/polygon_builder.html?polygon=${encodeURIComponent(polyStr)}`, '_blank');
 	}
+
+	$effect(() => {
+		const handleMessage = (event: MessageEvent) => {
+			if (event.origin !== window.location.origin) return;
+			if (event.data?.type === 'polygon_update') {
+				const newPolygon = event.data.vertices;
+				if (Array.isArray(newPolygon)) {
+					project.updateRoom({ polygon: newPolygon });
+				}
+			}
+		};
+		window.addEventListener('message', handleMessage);
+		return () => window.removeEventListener('message', handleMessage);
+	});
 </script>
 
 <div class="room-editor">
