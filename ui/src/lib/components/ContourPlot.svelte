@@ -978,6 +978,18 @@
 		}
 	}
 
+	function traceRoomPolygon(ctx: CanvasRenderingContext2D, L: any) {
+		if (!room.polygon || room.polygon.length === 0) return;
+		ctx.beginPath();
+		const startX = L.valToX(room.polygon[0][0]);
+		const startY = L.valToY(room.polygon[0][1]);
+		ctx.moveTo(startX, startY);
+		for (let i = 1; i < room.polygon.length; i++) {
+			ctx.lineTo(L.valToX(room.polygon[i][0]), L.valToY(room.polygon[i][1]));
+		}
+		ctx.closePath();
+	}
+
 	// --- Render loop on Canvas ---
 	function draw() {
 		if (!canvasElement) return;
@@ -1000,6 +1012,11 @@
 		ctx.beginPath();
 		ctx.rect(dataRect.x, dataRect.y, dataRect.w, dataRect.h);
 		ctx.clip();
+
+		if (room.polygon && room.polygon.length > 0 && (zone.ref_surface || 'xy') === 'xy') {
+			traceRoomPolygon(ctx, layout);
+			ctx.clip();
+		}
 
 		if (filled) {
 			// Floor
@@ -1025,6 +1042,12 @@
 			ctx.beginPath();
 			ctx.rect(dataRect.x, dataRect.y, dataRect.w, dataRect.h);
 			ctx.clip();
+
+			if (room.polygon && room.polygon.length > 0 && (zone.ref_surface || 'xy') === 'xy') {
+				traceRoomPolygon(ctx, layout);
+				ctx.clip();
+			}
+
 			ctx.strokeStyle = $theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
 			ctx.lineWidth = 1;
 			ctx.setLineDash([4, 4]);
@@ -1055,6 +1078,12 @@
 		ctx.beginPath();
 		ctx.rect(dataRect.x, dataRect.y, dataRect.w, dataRect.h);
 		ctx.clip();
+
+		if (room.polygon && room.polygon.length > 0 && (zone.ref_surface || 'xy') === 'xy') {
+			traceRoomPolygon(ctx, layout);
+			ctx.clip();
+		}
+
 		ctx.lineJoin = 'round';
 		for (let i = 0; i < contours.length; i++) {
 			ctx.strokeStyle = $theme === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(20,22,28,0.75)';
@@ -1207,6 +1236,11 @@
 		octx.rect(dataRect.x, dataRect.y, dataRect.w, dataRect.h);
 		octx.clip();
 
+		if (room.polygon && room.polygon.length > 0 && (zone.ref_surface || 'xy') === 'xy') {
+			traceRoomPolygon(octx, layout);
+			octx.clip();
+		}
+
 		if (filled) {
 			octx.fillStyle = floorColor;
 			octx.fillRect(dataRect.x, dataRect.y, dataRect.w, dataRect.h);
@@ -1224,6 +1258,12 @@
 			octx.beginPath();
 			octx.rect(dataRect.x, dataRect.y, dataRect.w, dataRect.h);
 			octx.clip();
+
+			if (room.polygon && room.polygon.length > 0 && (zone.ref_surface || 'xy') === 'xy') {
+				traceRoomPolygon(octx, layout);
+				octx.clip();
+			}
+
 			octx.strokeStyle = 'rgba(0,0,0,0.15)';
 			octx.lineWidth = 1;
 			octx.setLineDash([4, 4]);
@@ -1254,6 +1294,12 @@
 		octx.beginPath();
 		octx.rect(dataRect.x, dataRect.y, dataRect.w, dataRect.h);
 		octx.clip();
+
+		if (room.polygon && room.polygon.length > 0 && (zone.ref_surface || 'xy') === 'xy') {
+			traceRoomPolygon(octx, layout);
+			octx.clip();
+		}
+
 		octx.lineJoin = 'round';
 		for (let i = 0; i < outContours.length; i++) {
 			octx.strokeStyle = 'rgba(20,22,28,0.75)';
