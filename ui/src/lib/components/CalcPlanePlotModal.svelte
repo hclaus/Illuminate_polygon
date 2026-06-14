@@ -137,12 +137,17 @@
 			for (let i = 0; i < nU; i++) {
 				for (let j = 0; j < nV; j++) {
 					const val = values[i][j];
-					const t = (val - minVal) / range;
-					const lutIdx = Math.round(t * 255) * 4;
-					ctx.fillStyle = `rgb(${saveLut[lutIdx]}, ${saveLut[lutIdx + 1]}, ${saveLut[lutIdx + 2]})`;
 					const x = marginLeft + i * cellWidth;
 					const canvasJ = shouldFlipV ? (nV - 1 - j) : j;
 					const y = marginTop + canvasJ * cellHeight;
+
+					if (val === null || val === undefined || isNaN(val)) {
+						ctx.fillStyle = '#ffffff';
+					} else {
+						const t = (val - minVal) / range;
+						const lutIdx = Math.round(t * 255) * 4;
+						ctx.fillStyle = `rgb(${saveLut[lutIdx]}, ${saveLut[lutIdx + 1]}, ${saveLut[lutIdx + 2]})`;
+					}
 					ctx.fillRect(x, y, Math.ceil(cellWidth), Math.ceil(cellHeight));
 				}
 			}
@@ -162,6 +167,9 @@
 				for (let i = 0; i < nU; i++) {
 					for (let j = 0; j < nV; j++) {
 						const val = values[i][j];
+						if (val === null || val === undefined || isNaN(val)) {
+							continue;
+						}
 						const t = (val - minVal) / range;
 						const lutIdx = Math.round(t * 255) * 4;
 						const luminance = (0.299 * saveLut[lutIdx] + 0.587 * saveLut[lutIdx + 1] + 0.114 * saveLut[lutIdx + 2]) / 255;
@@ -519,10 +527,14 @@
 		let min = Infinity, max = -Infinity;
 		for (const row of values) {
 			for (const v of row) {
-				if (v < min) min = v;
-				if (v > max) max = v;
+				if (v !== null && v !== undefined && !isNaN(v)) {
+					if (v < min) min = v;
+					if (v > max) max = v;
+				}
 			}
 		}
+		if (min === Infinity) min = 0;
+		if (max === -Infinity) max = 0;
 		return { min, max };
 	});
 
@@ -591,17 +603,22 @@
 		for (let i = 0; i < numU; i++) {
 			for (let j = 0; j < numV; j++) {
 				const val = values[i][j];
-				const t = (val - minVal) / range;
-				const lutIdx = Math.round(t * 255) * 4;
-
-				// Canvas Y=0 is at top. Flip when v points in positive direction
-				// so that positive world coordinates appear at top of image.
 				const canvasJ = shouldFlipV ? (numV - 1 - j) : j;
 				const pixelIndex = (canvasJ * numU + i) * 4;
-				imageData.data[pixelIndex] = lut[lutIdx];
-				imageData.data[pixelIndex + 1] = lut[lutIdx + 1];
-				imageData.data[pixelIndex + 2] = lut[lutIdx + 2];
-				imageData.data[pixelIndex + 3] = 255;
+
+				if (val === null || val === undefined || isNaN(val)) {
+					imageData.data[pixelIndex] = 255;
+					imageData.data[pixelIndex + 1] = 255;
+					imageData.data[pixelIndex + 2] = 255;
+					imageData.data[pixelIndex + 3] = 255;
+				} else {
+					const t = (val - minVal) / range;
+					const lutIdx = Math.round(t * 255) * 4;
+					imageData.data[pixelIndex] = lut[lutIdx];
+					imageData.data[pixelIndex + 1] = lut[lutIdx + 1];
+					imageData.data[pixelIndex + 2] = lut[lutIdx + 2];
+					imageData.data[pixelIndex + 3] = 255;
+				}
 			}
 		}
 		ctx.putImageData(imageData, 0, 0);
@@ -644,6 +661,9 @@
 		for (let i = 0; i < numU; i++) {
 			for (let j = 0; j < numV; j++) {
 				const val = values[i][j];
+				if (val === null || val === undefined || isNaN(val)) {
+					continue;
+				}
 				const t = (val - minVal) / range;
 				const lutIdx = Math.round(t * 255) * 4;
 				const luminance = (0.299 * numLut[lutIdx] + 0.587 * numLut[lutIdx + 1] + 0.114 * numLut[lutIdx + 2]) / 255;
