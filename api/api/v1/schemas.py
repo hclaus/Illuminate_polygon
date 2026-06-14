@@ -12,6 +12,10 @@ class SurfaceReflectances(BaseModel):
     east: float = D.REFLECTANCE
     west: float = D.REFLECTANCE
 
+    model_config = {
+        "extra": "allow"
+    }
+
 class RoomInput(BaseModel):
     x: float
     y: float

@@ -132,7 +132,8 @@ def init_session(request: SessionInitRequest, session: SessionCreateDep):
         # calculation runs, but R values must already be on the surfaces)
         if request.room.reflectances:
             for wall, R_value in request.room.reflectances.model_dump().items():
-                session.room.set_reflectance(R_value, wall_id=wall)
+                if wall in session.room.surfaces:
+                    session.room.set_reflectance(R_value, wall_id=wall)
 
         # Apply per-surface reflectance spacings
         if request.room.reflectance_x_spacings or request.room.reflectance_y_spacings:
@@ -140,11 +141,12 @@ def init_session(request: SessionInitRequest, session: SessionCreateDep):
             y_spacings = request.room.reflectance_y_spacings or {}
             all_surfaces = set(x_spacings.keys()) | set(y_spacings.keys())
             for surface in all_surfaces:
-                session.room.set_reflectance_spacing(
-                    x_spacing=x_spacings.get(surface),
-                    y_spacing=y_spacings.get(surface),
-                    wall_id=surface,
-                )
+                if surface in session.room.surfaces:
+                    session.room.set_reflectance_spacing(
+                        x_spacing=x_spacings.get(surface),
+                        y_spacing=y_spacings.get(surface),
+                        wall_id=surface,
+                    )
 
         # Apply per-surface reflectance num_points
         if request.room.reflectance_x_num_points or request.room.reflectance_y_num_points:
@@ -152,11 +154,12 @@ def init_session(request: SessionInitRequest, session: SessionCreateDep):
             y_num_points = request.room.reflectance_y_num_points or {}
             all_surfaces = set(x_num_points.keys()) | set(y_num_points.keys())
             for surface in all_surfaces:
-                session.room.set_reflectance_num_points(
-                    num_x=x_num_points.get(surface),
-                    num_y=y_num_points.get(surface),
-                    wall_id=surface,
-                )
+                if surface in session.room.surfaces:
+                    session.room.set_reflectance_num_points(
+                        num_x=x_num_points.get(surface),
+                        num_y=y_num_points.get(surface),
+                        wall_id=surface,
+                    )
 
         # Clear ID maps
         session.lamp_id_map = {}
@@ -372,7 +375,8 @@ def update_session_room(updates: SessionRoomUpdate, session: InitializedSessionD
             session.room.enable_reflectance(updates.enable_reflectance)
         if updates.reflectances is not None:
             for wall, R_value in updates.reflectances.model_dump().items():
-                session.room.set_reflectance(R_value, wall_id=wall)
+                if wall in session.room.surfaces:
+                    session.room.set_reflectance(R_value, wall_id=wall)
         if updates.reflectance_max_num_passes is not None:
             session.room.set_max_num_passes(updates.reflectance_max_num_passes)
         if updates.reflectance_threshold is not None:
@@ -382,21 +386,23 @@ def update_session_room(updates: SessionRoomUpdate, session: InitializedSessionD
             y_spacings = updates.reflectance_y_spacings or {}
             all_surfaces = set(x_spacings.keys()) | set(y_spacings.keys())
             for surface in all_surfaces:
-                session.room.set_reflectance_spacing(
-                    x_spacing=x_spacings.get(surface),
-                    y_spacing=y_spacings.get(surface),
-                    wall_id=surface,
-                )
+                if surface in session.room.surfaces:
+                    session.room.set_reflectance_spacing(
+                        x_spacing=x_spacings.get(surface),
+                        y_spacing=y_spacings.get(surface),
+                        wall_id=surface,
+                    )
         if updates.reflectance_x_num_points or updates.reflectance_y_num_points:
             x_num_points = updates.reflectance_x_num_points or {}
             y_num_points = updates.reflectance_y_num_points or {}
             all_surfaces = set(x_num_points.keys()) | set(y_num_points.keys())
             for surface in all_surfaces:
-                session.room.set_reflectance_num_points(
-                    num_x=x_num_points.get(surface),
-                    num_y=y_num_points.get(surface),
-                    wall_id=surface,
-                )
+                if surface in session.room.surfaces:
+                    session.room.set_reflectance_num_points(
+                        num_x=x_num_points.get(surface),
+                        num_y=y_num_points.get(surface),
+                        wall_id=surface,
+                    )
         if updates.air_changes is not None:
             session.room.air_changes = updates.air_changes
         if updates.ozone_decay_constant is not None:
@@ -445,8 +451,8 @@ def get_room_surfaces(session: InitializedSessionDep):
         surfaces[name] = SurfaceInfo(
             x_spacing=surf.x_spacing,
             y_spacing=surf.y_spacing,
-            num_x=surf.plane.num_points[0],
-            num_y=surf.plane.num_points[1],
+            num_x=surf.num_x,
+            num_y=surf.num_y,
         )
     return ReflectanceSurfacesResponse(surfaces=surfaces)
 

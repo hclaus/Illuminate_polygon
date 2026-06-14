@@ -19,6 +19,18 @@
 
 	let { onClose }: Props = $props();
 
+	// Local draft state cloned from room store, fallback values for safety
+	let draftReflectances = $state<Record<string, number>>({ ...$room.reflectances });
+	let draftSpacings = $state<Record<string, { x: number; y: number }>>(
+		JSON.parse(JSON.stringify($room.reflectance_spacings || {}))
+	);
+	let draftNumPoints = $state<Record<string, { x: number; y: number }>>(
+		JSON.parse(JSON.stringify($room.reflectance_num_points || {}))
+	);
+	let draftResolutionMode = $state<ReflectanceResolutionMode>($room.reflectance_resolution_mode || 'num_points');
+	let draftMaxPasses = $state<number>($room.reflectance_max_num_passes ?? 100);
+	let draftThreshold = $state<number>($room.reflectance_threshold ?? 0.02);
+
 	// On mount, fetch actual surface info from the backend to populate the modal
 	onMount(async () => {
 		try {
@@ -34,17 +46,41 @@
 				reflectance_num_points: newNumPoints as unknown as SurfaceNumPointsAll,
 				reflectance_spacings: newSpacings as unknown as SurfaceSpacings,
 			});
+			// Populate draft state from store (after updating store with backend values)
+			draftReflectances = { ...$room.reflectances };
+			draftNumPoints = JSON.parse(JSON.stringify($room.reflectance_num_points || {}));
+			draftSpacings = JSON.parse(JSON.stringify($room.reflectance_spacings || {}));
+			draftResolutionMode = $room.reflectance_resolution_mode || 'num_points';
+			draftMaxPasses = $room.reflectance_max_num_passes ?? 100;
+			draftThreshold = $room.reflectance_threshold ?? 0.02;
 		} catch (e) {
-			// If backend fetch fails, keep using current store values
+			// If backend fetch fails, keep using current store values to populate draft state
 			console.warn('[ReflectanceSettingsModal] Failed to fetch surfaces from backend:', e);
+			draftReflectances = { ...$room.reflectances };
+			draftNumPoints = JSON.parse(JSON.stringify($room.reflectance_num_points || {}));
+			draftSpacings = JSON.parse(JSON.stringify($room.reflectance_spacings || {}));
+			draftResolutionMode = $room.reflectance_resolution_mode || 'num_points';
+			draftMaxPasses = $room.reflectance_max_num_passes ?? 100;
+			draftThreshold = $room.reflectance_threshold ?? 0.02;
 		}
 	});
 
 	// Surface list
-	const allSurfaces: Array<keyof SurfaceReflectances> = ['floor', 'ceiling', 'south', 'north', 'east', 'west'];
+	const isPolygon = $derived(!!$room.polygon && $room.polygon.length > 0);
+	const initialSurfaces = $derived(
+		isPolygon && $room.polygon
+			? ['floor', 'ceiling', ...$room.polygon.map((_, i) => `wall_${i}`)]
+			: ['floor', 'ceiling', 'south', 'north', 'east', 'west']
+	);
+
+	let allSurfaces = $state<string[]>(['floor', 'ceiling', 'south', 'north', 'east', 'west']);
+
+	$effect(() => {
+		allSurfaces = initialSurfaces;
+	});
 
 	// Hover/focus tracking for 3D highlight
-	let selectedSurface = $state<keyof SurfaceReflectances | null>(null);
+	let selectedSurface = $state<string | null>(null);
 
 	// Room dims (always in meters)
 	const roomDims = $derived({ x: $room.x, y: $room.y, z: $room.z });
@@ -54,12 +90,25 @@
 	}
 
 	/** Get the physical span dimensions for a reflective surface based on room geometry */
-	function getSurfaceSpans(surface: keyof SurfaceSpacings): { x: number; y: number } {
+	function getSurfaceSpans(surface: string): { x: number; y: number } {
 		const r = $room;
+		if (surface === 'floor' || surface === 'ceiling') {
+			return { x: r.x, y: r.y };
+		}
+		if (surface.startsWith('wall_')) {
+			const index = parseInt(surface.split('_')[1], 10);
+			if (r.polygon && r.polygon.length > 0 && !isNaN(index)) {
+				const p1 = r.polygon[index];
+				const p2 = r.polygon[(index + 1) % r.polygon.length];
+				if (p1 && p2) {
+					const dx = p2[0] - p1[0];
+					const dy = p2[1] - p1[1];
+					const length = Math.sqrt(dx * dx + dy * dy);
+					return { x: length, y: r.z };
+				}
+			}
+		}
 		switch (surface) {
-			case 'floor':
-			case 'ceiling':
-				return { x: r.x, y: r.y };
 			case 'north':
 			case 'south':
 				return { x: r.x, y: r.z };
@@ -67,77 +116,87 @@
 			case 'west':
 				return { x: r.y, y: r.z };
 		}
+		return { x: r.x, y: r.z };
 	}
 
 	const unitAbbrev = $derived(getUnitAbbrev($userSettings.units));
 
-	function handleReflectanceChange(surface: keyof SurfaceReflectances, value: number) {
-		const newReflectances = { ...$room.reflectances, [surface]: value };
-		project.updateRoom({ reflectances: newReflectances });
+	function handleReflectanceChange(surface: string, value: number) {
+		draftReflectances = { ...draftReflectances, [surface]: value };
 	}
 
 	function setAllReflectances(value: number) {
-		const newReflectances: SurfaceReflectances = {
-			floor: value,
-			ceiling: value,
-			north: value,
-			south: value,
-			east: value,
-			west: value
-		};
-		project.updateRoom({ reflectances: newReflectances });
+		const newReflectances: Record<string, number> = {};
+		for (const surface of allSurfaces) {
+			newReflectances[surface] = value;
+		}
+		draftReflectances = newReflectances;
 	}
 
-	function handleSpacingChange(surface: keyof SurfaceSpacings, axis: 'x' | 'y', value: number) {
+	function getDefaultNumPoints(surface: string): number {
+		return (surface === 'floor' || surface === 'ceiling') ? 10 : 20;
+	}
+
+	function handleSpacingChange(surface: string, axis: 'x' | 'y', value: number) {
 		const spans = getSurfaceSpans(surface);
-		const newSpacings = {
-			...$room.reflectance_spacings,
+		const defaultNum = getDefaultNumPoints(surface);
+		draftSpacings = {
+			...draftSpacings,
 			[surface]: {
-				...$room.reflectance_spacings[surface],
+				...(draftSpacings[surface] || { x: 0.5, y: 0.5 }),
 				[axis]: value
 			}
 		};
-		const newNumPoints = {
-			...$room.reflectance_num_points,
+		draftNumPoints = {
+			...draftNumPoints,
 			[surface]: {
-				...$room.reflectance_num_points[surface],
+				...(draftNumPoints[surface] || { x: defaultNum, y: defaultNum }),
 				[axis]: numPointsFromSpacing(spans[axis], value)
 			}
 		};
-		project.updateRoom({ reflectance_spacings: newSpacings, reflectance_num_points: newNumPoints });
 	}
 
-	function handleNumPointsChange(surface: keyof SurfaceNumPointsAll, axis: 'x' | 'y', value: number) {
+	function handleNumPointsChange(surface: string, axis: 'x' | 'y', value: number) {
 		const spans = getSurfaceSpans(surface);
-		const newNumPoints = {
-			...$room.reflectance_num_points,
+		const defaultNum = getDefaultNumPoints(surface);
+		draftNumPoints = {
+			...draftNumPoints,
 			[surface]: {
-				...$room.reflectance_num_points[surface],
+				...(draftNumPoints[surface] || { x: defaultNum, y: defaultNum }),
 				[axis]: value
 			}
 		};
-		const newSpacings = {
-			...$room.reflectance_spacings,
+		draftSpacings = {
+			...draftSpacings,
 			[surface]: {
-				...$room.reflectance_spacings[surface],
+				...(draftSpacings[surface] || { x: 0.5, y: 0.5 }),
 				[axis]: round3(spacingFromNumPoints(spans[axis], value))
 			}
 		};
-		project.updateRoom({ reflectance_num_points: newNumPoints, reflectance_spacings: newSpacings });
 	}
 
 	function toggleResolutionMode() {
-		const newMode: ReflectanceResolutionMode =
-			$room.reflectance_resolution_mode === 'spacing' ? 'num_points' : 'spacing';
-		project.updateRoom({ reflectance_resolution_mode: newMode });
+		draftResolutionMode = draftResolutionMode === 'spacing' ? 'num_points' : 'spacing';
 	}
 
 	function handleMaxPassesChange(value: number) {
-		project.updateRoom({ reflectance_max_num_passes: value });
+		draftMaxPasses = value;
 	}
 
 	function handleThresholdChange(value: number) {
-		project.updateRoom({ reflectance_threshold: value });
+		draftThreshold = value;
+	}
+
+	function handleApply() {
+		project.updateRoom({
+			reflectances: draftReflectances as any,
+			reflectance_spacings: draftSpacings as any,
+			reflectance_num_points: draftNumPoints as any,
+			reflectance_resolution_mode: draftResolutionMode,
+			reflectance_max_num_passes: draftMaxPasses,
+			reflectance_threshold: draftThreshold,
+		});
+		onClose();
 	}
 </script>
 
@@ -153,7 +212,7 @@
 			<div class="preview-column">
 				<div class="canvas-container" class:dark={$theme === 'dark'}>
 					<Canvas>
-						<ReflectancePreview3D {roomDims} numPoints={$room.reflectance_num_points} {selectedSurface} />
+						<ReflectancePreview3D {roomDims} numPoints={draftNumPoints as unknown as SurfaceNumPointsAll} {selectedSurface} />
 					</Canvas>
 				</div>
 				<p class="hint canvas-hint">Drag to rotate, scroll to zoom</p>
@@ -171,7 +230,7 @@
 						</div>
 					</div>
 					<button type="button" class="mode-switch-btn" onclick={toggleResolutionMode}>
-						{$room.reflectance_resolution_mode === 'num_points' ? 'Set Spacing' : 'Set Num Points'}
+						{draftResolutionMode === 'num_points' ? 'Set Spacing' : 'Set Num Points'}
 					</button>
 				</div>
 
@@ -181,7 +240,7 @@
 						<span class="col-surface">Surface</span>
 						<span class="col-value col-refl">Reflectance</span>
 						<span class="col-sep"></span>
-						{#if $room.reflectance_resolution_mode === 'spacing'}
+						{#if draftResolutionMode === 'spacing'}
 							<span class="col-value">X Spacing</span>
 							<span class="col-value">Y Spacing</span>
 						{:else}
@@ -200,36 +259,36 @@
 						>
 							<span class="surface-name">{surface}</span>
 							<ValidatedNumberInput
-								value={$room.reflectances[surface]}
+								value={draftReflectances[surface] ?? 0.078}
 								oncommit={(v) => handleReflectanceChange(surface, v)}
 								min={0}
 								max={1}
 								step={0.01}
 							/>
 							<span class="col-sep"></span>
-							{#if $room.reflectance_resolution_mode === 'spacing'}
+							{#if draftResolutionMode === 'spacing'}
 								<ValidatedNumberInput
-									value={$room.reflectance_spacings[surface].x} precision={$room.precision}
+									value={draftSpacings[surface]?.x ?? 0.5} precision={$room.precision}
 									oncommit={(v) => handleSpacingChange(surface, 'x', v)}
 									step={0.1}
 									validate={(v) => v > 0 && v < getSurfaceSpans(surface).x}
 								/>
 								<ValidatedNumberInput
-									value={$room.reflectance_spacings[surface].y} precision={$room.precision}
+									value={draftSpacings[surface]?.y ?? 0.5} precision={$room.precision}
 									oncommit={(v) => handleSpacingChange(surface, 'y', v)}
 									step={0.1}
 									validate={(v) => v > 0 && v < getSurfaceSpans(surface).y}
 								/>
 							{:else}
 								<ValidatedNumberInput
-									value={$room.reflectance_num_points[surface].x}
+									value={draftNumPoints[surface]?.x ?? getDefaultNumPoints(surface)}
 									oncommit={(v) => handleNumPointsChange(surface, 'x', v)}
 									integer
 									min={1}
 									step={1}
 								/>
 								<ValidatedNumberInput
-									value={$room.reflectance_num_points[surface].y}
+									value={draftNumPoints[surface]?.y ?? getDefaultNumPoints(surface)}
 									oncommit={(v) => handleNumPointsChange(surface, 'y', v)}
 									integer
 									min={1}
@@ -241,10 +300,10 @@
 							<span></span>
 							<span></span>
 							<span></span>
-							{#if $room.reflectance_resolution_mode === 'spacing'}
-								<span class="computed-value">{$room.reflectance_num_points[surface].x} x {$room.reflectance_num_points[surface].y} pts</span>
+							{#if draftResolutionMode === 'spacing'}
+								<span class="computed-value">{(draftNumPoints[surface]?.x ?? getDefaultNumPoints(surface))} x {(draftNumPoints[surface]?.y ?? getDefaultNumPoints(surface))} pts</span>
 							{:else}
-								<span class="computed-value">{formatFloat(spacingFromNumPoints(getSurfaceSpans(surface).x, $room.reflectance_num_points[surface].x), $room.precision)} x {formatFloat(spacingFromNumPoints(getSurfaceSpans(surface).y, $room.reflectance_num_points[surface].y), $room.precision)} {unitAbbrev}</span>
+								<span class="computed-value">{formatFloat(spacingFromNumPoints(getSurfaceSpans(surface).x, draftNumPoints[surface]?.x ?? getDefaultNumPoints(surface)), $room.precision)} x {formatFloat(spacingFromNumPoints(getSurfaceSpans(surface).y, draftNumPoints[surface]?.y ?? getDefaultNumPoints(surface)), $room.precision)} {unitAbbrev}</span>
 							{/if}
 						</div>
 					{/each}
@@ -260,7 +319,7 @@
 								<label for="max_passes">Max iterations</label>
 								<ValidatedNumberInput
 									id="max_passes"
-									value={$room.reflectance_max_num_passes}
+									value={draftMaxPasses}
 									oncommit={handleMaxPassesChange}
 									integer
 									min={1}
@@ -272,7 +331,7 @@
 								<label for="threshold">Threshold</label>
 								<ValidatedNumberInput
 									id="threshold"
-									value={$room.reflectance_threshold}
+									value={draftThreshold}
 									oncommit={handleThresholdChange}
 									min={0}
 									max={1}
@@ -283,6 +342,16 @@
 						</div>
 					</div>
 				</section>
+			</div>
+		</div>
+	{/snippet}
+
+	{#snippet footer()}
+		<div class="modal-footer">
+			<div></div>
+			<div class="footer-right">
+				<button type="button" class="secondary" onclick={onClose}>Cancel</button>
+				<button type="button" class="primary" onclick={handleApply}>Apply Reflectance Settings</button>
 			</div>
 		</div>
 	{/snippet}
@@ -536,6 +605,51 @@
 
 	:global(input) {
 		width: 100%;
+	}
+
+	.modal-footer {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: var(--spacing-sm) var(--spacing-md);
+		border-top: 1px solid var(--color-border);
+		flex-shrink: 0;
+	}
+
+	.footer-right {
+		display: flex;
+		gap: var(--spacing-sm);
+	}
+
+	.modal-footer button.primary {
+		background: var(--color-accent);
+		color: white;
+		border-color: var(--color-accent);
+		padding: 6px var(--spacing-md);
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		transition: background-color 0.15s;
+	}
+
+	.modal-footer button.primary:hover {
+		background: var(--color-accent-hover);
+	}
+
+	.modal-footer button.secondary {
+		background: var(--color-bg-tertiary);
+		color: var(--color-text);
+		border: 1px solid var(--color-border);
+		padding: 6px var(--spacing-md);
+		font-size: var(--font-size-sm);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		transition: background-color 0.15s;
+	}
+
+	.modal-footer button.secondary:hover {
+		background: var(--color-border);
 	}
 
 	/* Responsive: stack vertically on narrow viewports */

@@ -1,6 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { browser } from '$app/environment';
-import { defaultProject, defaultSurfaceSpacings, defaultSurfaceNumPoints, ROOM_DEFAULTS, type Project, type LampInstance, type CalcZone, type RoomConfig, type RoomOverrides, type StateHashes, type SurfaceSpacings, type SurfaceNumPointsAll } from '$lib/types/project';
+import { defaultProject, defaultSurfaceSpacings, defaultSurfaceNumPoints, ROOM_DEFAULTS, type Project, type LampInstance, type CalcZone, type RoomConfig, type RoomOverrides, type StateHashes, type SurfaceSpacings, type SurfaceNumPointsAll, type SurfaceReflectances } from '$lib/types/project';
 import { userSettings } from '$lib/stores/settings';
 import type { UserSettings } from '$lib/stores/settings';
 import { fileStore } from '$lib/stores/fileStore';
@@ -281,6 +281,10 @@ async function reuploadCustomFiles(lamps: LampInstance[]): Promise<void> {
 
 // Convert project to session init format
 function projectToSessionInit(p: Project): SessionInitRequest {
+  const currentMode = p.room.reflectance_resolution_mode ?? 'num_points';
+  const flattenedSpacings = p.room.reflectance_spacings ? flattenSpacings(p.room.reflectance_spacings) : null;
+  const flattenedNumPoints = p.room.reflectance_num_points ? flattenNumPoints(p.room.reflectance_num_points) : null;
+
   return {
     room: {
       x: p.room.x,
@@ -291,9 +295,12 @@ function projectToSessionInit(p: Project): SessionInitRequest {
       standard: p.room.standard,
       enable_reflectance: p.room.enable_reflectance,
       reflectances: p.room.reflectances,
-      // Reflectance resolution (spacings/num_points/max_passes/threshold) intentionally
-      // omitted — the backend (guv_calcs) defaults to 10x10 per surface, which is the
-      // correct default. Sending frontend-computed values inflates grids for large rooms.
+      reflectance_x_spacings: currentMode === 'spacing' && flattenedSpacings ? flattenedSpacings.reflectance_x_spacings : undefined,
+      reflectance_y_spacings: currentMode === 'spacing' && flattenedSpacings ? flattenedSpacings.reflectance_y_spacings : undefined,
+      reflectance_x_num_points: currentMode === 'num_points' && flattenedNumPoints ? flattenedNumPoints.reflectance_x_num_points : undefined,
+      reflectance_y_num_points: currentMode === 'num_points' && flattenedNumPoints ? flattenedNumPoints.reflectance_y_num_points : undefined,
+      reflectance_max_num_passes: p.room.reflectance_max_num_passes,
+      reflectance_threshold: p.room.reflectance_threshold,
       air_changes: p.room.air_changes ?? ROOM_DEFAULTS.air_changes,
       ozone_decay_constant: p.room.ozone_decay_constant ?? ROOM_DEFAULTS.ozone_decay_constant,
       colormap: p.room.colormap ?? ROOM_DEFAULTS.colormap,
@@ -1472,13 +1479,8 @@ function createProjectStore() {
         precision: response.room.precision,
         enable_reflectance: response.room.enable_reflectance,
         reflectances: response.room.reflectances ? {
-          floor: response.room.reflectances.floor ?? d.reflectance,
-          ceiling: response.room.reflectances.ceiling ?? d.reflectance,
-          north: response.room.reflectances.north ?? d.reflectance,
-          south: response.room.reflectances.south ?? d.reflectance,
-          east: response.room.reflectances.east ?? d.reflectance,
-          west: response.room.reflectances.west ?? d.reflectance,
-        } : {
+          ...response.room.reflectances
+        } as SurfaceReflectances : {
           floor: d.reflectance,
           ceiling: d.reflectance,
           north: d.reflectance,

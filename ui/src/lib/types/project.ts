@@ -9,6 +9,7 @@ export interface SurfaceReflectances {
   south: number;
   east: number;
   west: number;
+  [key: string]: number;
 }
 
 export interface SurfaceSpacing {
@@ -23,6 +24,7 @@ export interface SurfaceSpacings {
   south: SurfaceSpacing;
   east: SurfaceSpacing;
   west: SurfaceSpacing;
+  [key: string]: SurfaceSpacing;
 }
 
 export interface SurfaceNumPoints {
@@ -37,6 +39,7 @@ export interface SurfaceNumPointsAll {
   south: SurfaceNumPoints;
   east: SurfaceNumPoints;
   west: SurfaceNumPoints;
+  [key: string]: SurfaceNumPoints;
 }
 
 export type ResolutionMode = 'spacing' | 'num_points';
@@ -479,28 +482,29 @@ export function defaultSurfaceSpacings(
   roomY: number = ROOM_DEFAULTS.y,
   roomZ: number = ROOM_DEFAULTS.z,
 ): SurfaceSpacings {
-  // Derive spacings from room dimensions / 10 to match guv_calcs 10x10 default
-  const n = ROOM_DEFAULTS.reflectance_num_points;
+  // Derive spacings from room dimensions / points count
+  const nFloorCeil = ROOM_DEFAULTS.reflectance_num_points; // 10
+  const nWalls = 20;
   return {
-    floor:   { x: roomX / n, y: roomY / n },
-    ceiling: { x: roomX / n, y: roomY / n },
-    north:   { x: roomX / n, y: roomZ / n },
-    south:   { x: roomX / n, y: roomZ / n },
-    east:    { x: roomY / n, y: roomZ / n },
-    west:    { x: roomY / n, y: roomZ / n },
+    floor:   { x: roomX / nFloorCeil, y: roomY / nFloorCeil },
+    ceiling: { x: roomX / nFloorCeil, y: roomY / nFloorCeil },
+    north:   { x: roomX / nWalls, y: roomZ / nWalls },
+    south:   { x: roomX / nWalls, y: roomZ / nWalls },
+    east:    { x: roomY / nWalls, y: roomZ / nWalls },
+    west:    { x: roomY / nWalls, y: roomZ / nWalls },
   };
 }
 
 export function defaultSurfaceNumPoints(): SurfaceNumPointsAll {
-  // Always 10x10 per surface — matches guv_calcs default
-  const n = ROOM_DEFAULTS.reflectance_num_points;
+  // floor and ceiling: 10x10, walls: 20x20
+  const n = ROOM_DEFAULTS.reflectance_num_points; // 10
   return {
     floor:   { x: n, y: n },
     ceiling: { x: n, y: n },
-    north:   { x: n, y: n },
-    south:   { x: n, y: n },
-    east:    { x: n, y: n },
-    west:    { x: n, y: n },
+    north:   { x: 20, y: 20 },
+    south:   { x: 20, y: 20 },
+    east:    { x: 20, y: 20 },
+    west:    { x: 20, y: 20 },
   };
 }
 
