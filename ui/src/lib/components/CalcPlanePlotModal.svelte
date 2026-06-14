@@ -134,6 +134,19 @@
 			const cellHeight = plotH / nV;
 			const saveLut = colorLUT;
 
+			ctx.save();
+			if (room.polygon && room.polygon.length > 0 && (zone.ref_surface || 'xy') === 'xy') {
+				ctx.beginPath();
+				const start = valToCanvas(room.polygon[0][0], room.polygon[0][1], plotW, plotH);
+				ctx.moveTo(marginLeft + start.x, marginTop + start.y);
+				for (let k = 1; k < room.polygon.length; k++) {
+					const pt = valToCanvas(room.polygon[k][0], room.polygon[k][1], plotW, plotH);
+					ctx.lineTo(marginLeft + pt.x, marginTop + pt.y);
+				}
+				ctx.closePath();
+				ctx.clip();
+			}
+
 			for (let i = 0; i < nU; i++) {
 				for (let j = 0; j < nV; j++) {
 					const val = values[i][j];
@@ -151,6 +164,7 @@
 					ctx.fillRect(x, y, Math.ceil(cellWidth), Math.ceil(cellHeight));
 				}
 			}
+			ctx.restore();
 
 			// Heatmap border
 			ctx.strokeStyle = borderColor;
@@ -163,6 +177,19 @@
 				ctx.font = `${fontSize}px monospace`;
 				ctx.textAlign = 'center';
 				ctx.textBaseline = 'middle';
+
+				ctx.save();
+				if (room.polygon && room.polygon.length > 0 && (zone.ref_surface || 'xy') === 'xy') {
+					ctx.beginPath();
+					const start = valToCanvas(room.polygon[0][0], room.polygon[0][1], plotW, plotH);
+					ctx.moveTo(marginLeft + start.x, marginTop + start.y);
+					for (let k = 1; k < room.polygon.length; k++) {
+						const pt = valToCanvas(room.polygon[k][0], room.polygon[k][1], plotW, plotH);
+						ctx.lineTo(marginLeft + pt.x, marginTop + pt.y);
+					}
+					ctx.closePath();
+					ctx.clip();
+				}
 
 				for (let i = 0; i < nU; i++) {
 					for (let j = 0; j < nV; j++) {
@@ -181,6 +208,7 @@
 						ctx.fillText(formatValue(val * valueFactor), cx, cy);
 					}
 				}
+				ctx.restore();
 			}
 
 			// --- Lamp labels ---
@@ -522,12 +550,43 @@
 		return ((value - min) / (max - min)) * 100;
 	}
 
+	function isPointInPolygon(x: number, y: number, polygon: [number, number][]): boolean {
+		let inside = false;
+		for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+			const xi = polygon[i][0], yi = polygon[i][1];
+			const xj = polygon[j][0], yj = polygon[j][1];
+			const intersect = ((yi > y) !== (yj > y))
+				&& (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+			if (intersect) inside = !inside;
+		}
+		return inside;
+	}
+
+	function isCoordInsideRoom(i: number, j: number, numU: number, numV: number): boolean {
+		if (!room.polygon || room.polygon.length === 0 || (zone.ref_surface || 'xy') !== 'xy') {
+			return true;
+		}
+		const u = bounds.u1 + (i + 0.5) * (bounds.u2 - bounds.u1) / numU;
+		const v = bounds.v1 + (j + 0.5) * (bounds.v2 - bounds.v1) / numV;
+		return isPointInPolygon(u, v, room.polygon);
+	}
+
+	function valToCanvas(u: number, v: number, w: number, h: number) {
+		const x = ((u - bounds.u1) / (bounds.u2 - bounds.u1)) * w;
+		const pctV = (v - bounds.v1) / (bounds.v2 - bounds.v1);
+		const y = shouldFlipV ? (1 - pctV) * h : pctV * h;
+		return { x, y };
+	}
+
 	// Value statistics for color mapping (raw, used for heatmap normalization)
 	const valueStats = $derived.by(() => {
 		let min = Infinity, max = -Infinity;
-		for (const row of values) {
-			for (const v of row) {
-				if (v !== null && v !== undefined && !isNaN(v)) {
+		const numU = values.length;
+		const numV = values[0]?.length || 0;
+		for (let i = 0; i < numU; i++) {
+			for (let j = 0; j < numV; j++) {
+				const v = values[i][j];
+				if (v !== null && v !== undefined && !isNaN(v) && isCoordInsideRoom(i, j, numU, numV)) {
 					if (v < min) min = v;
 					if (v > max) max = v;
 				}
@@ -622,6 +681,23 @@
 			}
 		}
 		ctx.putImageData(imageData, 0, 0);
+
+		// Mask out areas outside the room polygon
+		if (room.polygon && room.polygon.length > 0 && (zone.ref_surface || 'xy') === 'xy') {
+			ctx.save();
+			ctx.fillStyle = $theme === 'dark' ? '#1a1a2e' : '#ffffff';
+			ctx.beginPath();
+			ctx.rect(0, 0, numU, numV);
+			const start = valToCanvas(room.polygon[0][0], room.polygon[0][1], numU, numV);
+			ctx.moveTo(start.x, start.y);
+			for (let k = 1; k < room.polygon.length; k++) {
+				const pt = valToCanvas(room.polygon[k][0], room.polygon[k][1], numU, numV);
+				ctx.lineTo(pt.x, pt.y);
+			}
+			ctx.closePath();
+			ctx.fill('evenodd');
+			ctx.restore();
+		}
 	});
 
 	// Generate legend gradient stops
@@ -657,6 +733,19 @@
 		ctx.textAlign = 'center';
 		ctx.textBaseline = 'middle';
 
+		ctx.save();
+		if (room.polygon && room.polygon.length > 0 && (zone.ref_surface || 'xy') === 'xy') {
+			ctx.beginPath();
+			const start = valToCanvas(room.polygon[0][0], room.polygon[0][1], displayDims.width, displayDims.height);
+			ctx.moveTo(start.x, start.y);
+			for (let k = 1; k < room.polygon.length; k++) {
+				const pt = valToCanvas(room.polygon[k][0], room.polygon[k][1], displayDims.width, displayDims.height);
+				ctx.lineTo(pt.x, pt.y);
+			}
+			ctx.closePath();
+			ctx.clip();
+		}
+
 		const numLut = colorLUT;
 		for (let i = 0; i < numU; i++) {
 			for (let j = 0; j < numV; j++) {
@@ -675,6 +764,7 @@
 				ctx.fillText(formatValue(val * valueFactor), cx, cy);
 			}
 		}
+		ctx.restore();
 	});
 
 	// --- TLV Safety Limit Scale ---
