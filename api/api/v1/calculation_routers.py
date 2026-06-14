@@ -233,7 +233,28 @@ async def calculate_session(session: InitializedSessionDep):
 
                 # Reshape values for frontend
                 reshaped_values = None
-                if hasattr(zone, 'num_points'):
+                num_points_list = None
+                if hasattr(zone, 'geometry') and hasattr(zone.geometry, 'values_to_grid'):
+                    try:
+                        # Use values_to_grid to map flat array to 2D/3D grid (with np.nan for outside)
+                        grid_values = zone.geometry.values_to_grid(values)
+                        # We convert nan to None so that it serializes to JSON null
+                        grid_values_clean = np.where(np.isnan(grid_values), None, grid_values)
+                        reshaped_values = grid_values_clean.tolist()
+                        
+                        geom = zone.geometry
+                        num_x = getattr(geom, 'num_x', None)
+                        num_y = getattr(geom, 'num_y', None)
+                        num_z = getattr(geom, 'num_z', None)
+                        if num_x is not None and num_y is not None:
+                            if num_z is not None:
+                                num_points_list = [num_x, num_y, num_z]
+                            else:
+                                num_points_list = [num_x, num_y]
+                    except Exception as e:
+                        logger.warning(f"Failed to convert values to grid for zone {zone_id}: {e}")
+
+                if reshaped_values is None and hasattr(zone, 'num_points'):
                     try:
                         num_points = zone.num_points
                         reshaped_values = values.reshape(num_points).tolist()
@@ -241,12 +262,15 @@ async def calculate_session(session: InitializedSessionDep):
                         logger.warning(f"Failed to reshape values for zone {zone_id}: {e}")
                         reshaped_values = values.tolist() if hasattr(values, 'tolist') else None
 
+                if num_points_list is None and hasattr(zone, 'num_points'):
+                    num_points_list = list(zone.num_points)
+
                 zone_results[zone_id] = SimulationZoneResult(
                     zone_id=zone_id,
                     zone_name=getattr(zone, 'name', None),
                     zone_type=zone_type,
                     statistics=statistics,
-                    num_points=list(zone.num_points) if hasattr(zone, 'num_points') else None,
+                    num_points=num_points_list,
                     values=reshaped_values,
                 )
             else:

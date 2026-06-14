@@ -128,6 +128,39 @@
 		}
 	}
 
+	// Transform 2D plane coordinates (u, v) back to 2D room (X, Y) coordinates
+	function planeToRoomXY(u: number, v: number, fixed: number): [number, number] {
+		switch (refSurface) {
+			case 'xz':
+				return [u, fixed];
+			case 'yz':
+				return [fixed, u];
+			case 'xy':
+			default:
+				return [u, v];
+		}
+	}
+
+	// Classic ray-casting point-in-polygon algorithm
+	function isPointInPolygon(x: number, y: number, polygon: [number, number][]): boolean {
+		let inside = false;
+		for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+			const xi = polygon[i][0], yi = polygon[i][1];
+			const xj = polygon[j][0], yj = polygon[j][1];
+			const intersect = ((yi > y) !== (yj > y))
+				&& (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+			if (intersect) inside = !inside;
+		}
+		return inside;
+	}
+
+	// Helper to check if a coordinate (u, v) is inside the room's polygon boundary
+	function isInsideRoom(u: number, v: number, fixed: number): boolean {
+		if (!room.polygon || room.polygon.length === 0) return true;
+		const [rx, ry] = planeToRoomXY(u, v, fixed);
+		return isPointInPolygon(rx, ry, room.polygon);
+	}
+
 	// Build geometry for heatmap surface when values exist
 	// Takes colormap and flipV as parameters to ensure reactivity when they change
 	function buildSurfaceGeometry(cm: string, flipV: boolean, useOffset: boolean, gvr: { min: number; max: number } | null): THREE.BufferGeometry | null {
@@ -148,9 +181,9 @@
 			minVal = gvr.min;
 			maxVal = gvr.max;
 		} else {
-			const flatValues = values.flat();
-			minVal = Math.min(...flatValues);
-			maxVal = Math.max(...flatValues);
+			const flatValues = values.flat().filter(v => v !== null && v !== undefined && !isNaN(v));
+			minVal = flatValues.length > 0 ? Math.min(...flatValues) : 0;
+			maxVal = flatValues.length > 0 ? Math.max(...flatValues) : 1;
 		}
 		const range = maxVal - minVal || 1;
 
@@ -170,9 +203,13 @@
 				// Flip V index when v axis points in negative direction (values ordered opposite to world coords)
 				const valueJ = flipV ? (numV - 1 - j) : j;
 				const val = values[i][valueJ];
-				const t = (val - minVal) / range;
-				const color = valueToColor(t, cm);
-				colors.push(color.r, color.g, color.b);
+				if (val === null || val === undefined || isNaN(val)) {
+					colors.push(0, 0, 0);
+				} else {
+					const t = (val - minVal) / range;
+					const color = valueToColor(t, cm);
+					colors.push(color.r, color.g, color.b);
+				}
 			}
 		}
 
@@ -183,8 +220,22 @@
 				const b = i * numV + (j + 1);
 				const c = (i + 1) * numV + j;
 				const d = (i + 1) * numV + (j + 1);
-				indices.push(a, b, c);
-				indices.push(b, d, c);
+
+				// Get values of the 4 corners of the quad to check if any is null (outside room)
+				const valA = values[i][flipV ? (numV - 1 - j) : j];
+				const valB = values[i][flipV ? (numV - 1 - (j + 1)) : (j + 1)];
+				const valC = values[i + 1][flipV ? (numV - 1 - j) : j];
+				const valD = values[i + 1][flipV ? (numV - 1 - (j + 1)) : (j + 1)];
+
+				const isOutside = (v: any) => v === null || v === undefined || isNaN(v);
+
+				// Only add triangles if none of their vertices are outside
+				if (!isOutside(valA) && !isOutside(valB) && !isOutside(valC)) {
+					indices.push(a, b, c);
+				}
+				if (!isOutside(valB) && !isOutside(valD) && !isOutside(valC)) {
+					indices.push(b, d, c);
+				}
 			}
 		}
 
@@ -341,6 +392,7 @@
 		const targetPos = perInstanceTarget ? roomPosToThreeJS(viewTarget) : null;
 		const scaleVec = new THREE.Vector3(scale, scale, scale);
 		const mat = new THREE.Matrix4();
+		const flipV = shouldFlipValues;
 
 		let idx = 0;
 		for (let i = 0; i < numU; i++) {
@@ -353,6 +405,15 @@
 					: bounds.v1 + (j / (numV - 1)) * (bounds.v2 - bounds.v1);
 				const [wx, wy, wz] = planeToWorld(u, v, bounds.fixed);
 				const pos = new THREE.Vector3(wx, wy, wz);
+
+				// Mask outside coordinates
+				const valueJ = flipV ? (numV - 1 - j) : j;
+				const hasVal = values && values[i] && values[i][valueJ] !== undefined;
+				const isPointInside = hasVal 
+					? (values[i][valueJ] !== null)
+					: isInsideRoom(u, v, bounds.fixed);
+
+				const instanceScaleVec = isPointInside ? scaleVec : new THREE.Vector3(0, 0, 0);
 
 				let orientation: THREE.Quaternion;
 				if (perInstanceTarget && targetPos) {
@@ -370,7 +431,7 @@
 					orientation = sharedOrientation;
 				}
 
-				mat.compose(pos, orientation, scaleVec);
+				mat.compose(pos, orientation, instanceScaleVec);
 				mesh.setMatrixAt(idx, mat);
 				idx++;
 			}
@@ -464,6 +525,12 @@
 			for (let j = 0; j < numV; j++) {
 				const valueJ = flipV ? (numV - 1 - j) : j;
 				const val = values[i][valueJ];
+				
+				// Skip drawing numeric labels for coordinates that are outside the room polygon
+				if (val === null || val === undefined) {
+					continue;
+				}
+
 				const text = formatValue(val, room.precision ?? 1);
 
 				const cx = (i + 0.5) * cellPx;

@@ -741,7 +741,12 @@ def generate_contour_plot(zone, theme="light", dpi=100, units="meters"):
         v_positive = True
 
     u1, u2, v1, v2 = extent
-    plot_values = values.T
+    if hasattr(geom, 'values_to_grid'):
+        plot_values = geom.values_to_grid(values).T
+    elif hasattr(zone, 'num_points'):
+        plot_values = values.reshape(zone.num_points).T
+    else:
+        plot_values = values.T
     
     if not v_positive:
         plot_values = plot_values[::-1]

@@ -956,11 +956,12 @@
                 window.opener.postMessage({
                     type: 'polygon_update',
                     vertices: polyData
-                }, window.location.origin);
-                showToast("Applied to Room successfully!");
-            } else {
-                showToast("Error: No opener window found!");
+                }, '*');
             }
+            showToast("Applied to Room successfully!");
+            setTimeout(() => {
+                window.close();
+            }, 250);
         });
 
         // Theme Switcher Button Handler
