@@ -1,0 +1,32 @@
+Room Parameters
+,Dimensions,x,y,z,units
+,,3.0,3.5,2.7,meters
+,Volume,24.3,m 3
+""
+,Reflectance
+,,Floor,Ceiling,North,South,East,West,Enabled
+,,0.078,0.078,0.078,0.078,0.078,0.078,0.078,0.078,False
+""
+Luminaires
+,,,Surface Position,,,Aim
+,ID,Name,x,y,z,x,y,z,Orientation,Tilt,Surface Length,Surface Width,Scaling factor
+,Lamp,Lamp 1,2.0,2.5,2.6,2.0,2.5,0.0,0.0,0.0,0.045,0.06,1.0
+""
+Calculation Planes
+,ID,Name,x1,x2,y1,y2,height,Vertical irradiance,Horizontal irradiance,Vertical field of view,Horizontal field of view,Dose,Exposure Time
+,EyeLimits,Eye Dose (8 Hours),0.0,3.0,0.0,3.5,1.8,True,False,80.0,120.0,True,8:00:00
+,SkinLimits,Skin Dose (8 Hours),0.0,3.0,0.0,3.5,1.8,False,True,180.0,360.0,True,8:00:00
+,CalcPlane,CalcZone1,0.0,3.0,0.0,3.5,1.7,False,True,180.0,360.0,False,
+""
+Calculation Volumes
+,ID,Name,x1,x2,y1,y2,z1,z2,Dose,Exposure Time
+,WholeRoomFluence,Whole Room Fluence,0.0,3.0,0.0,3.5,0.0,2.7,False,
+""
+Statistics
+,Calculation Zone,Avg,Max,Min,Max/Min,Avg/Min,Units
+,Whole Room Fluence,0.399,151.117,0.0,inf,inf,uW/cm²
+,Eye Dose (8 Hours),2.997,16.031,0.0,inf,inf,mJ/cm²
+,Skin Dose (8 Hours),11.513,88.259,0.0,inf,inf,mJ/cm²
+,CalcZone1,0.373,2.406,0.0,inf,inf,uW/cm²
+""
+Generated 2026-06-14T09:42:35
