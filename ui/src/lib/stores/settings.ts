@@ -31,6 +31,7 @@ export interface UserSettings {
   showLampLabels: boolean;
   showCalcPointLabels: boolean;
   globalHeatmapNormalization: boolean;
+  showCeilingLayout: boolean;
 
   // Room defaults
   units: 'meters' | 'feet';       // Live display preference (set via sidebar)
@@ -78,6 +79,7 @@ export const SETTINGS_DEFAULTS: UserSettings = {
   showLampLabels: ROOM_DEFAULTS.showLampLabels,
   showCalcPointLabels: ROOM_DEFAULTS.showCalcPointLabels,
   globalHeatmapNormalization: ROOM_DEFAULTS.globalHeatmapNormalization,
+  showCeilingLayout: ROOM_DEFAULTS.showCeilingLayout,
 
   // Room defaults
   units: 'meters' as const,

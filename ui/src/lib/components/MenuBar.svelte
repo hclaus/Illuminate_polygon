@@ -29,6 +29,7 @@
 		showXYZMarker: boolean;
 		showLampLabels: boolean;
 		showCalcPointLabels: boolean;
+		showCeilingLayout: boolean;
 		colormap: string;
 		precision: number;
 		onToggleShowDimensions: () => void;
@@ -37,6 +38,7 @@
 		onToggleShowXYZMarker: () => void;
 		onToggleShowLampLabels: () => void;
 		onToggleShowCalcPointLabels: () => void;
+		onToggleShowCeilingLayout: () => void;
 		onSetColormap: (cm: string) => void;
 		onSetPrecision: (p: number) => void;
 		currentZoneDisplayMode: ZoneDisplayMode | null;
@@ -72,6 +74,7 @@
 		showXYZMarker,
 		showLampLabels,
 		showCalcPointLabels,
+		showCeilingLayout,
 		colormap,
 		precision,
 		onToggleShowDimensions,
@@ -80,6 +83,7 @@
 		onToggleShowXYZMarker,
 		onToggleShowLampLabels,
 		onToggleShowCalcPointLabels,
+		onToggleShowCeilingLayout,
 		onSetColormap,
 		onSetPrecision,
 		currentZoneDisplayMode,
@@ -386,7 +390,7 @@
 		{/if}
 	</div>
 
-	<div class="menu-right"><a class="app-name" href="https://www.github.com/jvbelenky/illuminate-v2" target="_blank" rel="noopener noreferrer">Illuminate v2</a></div>
+	<div class="menu-right"><a class="app-name" href="https://www.github.com/jvbelenky/illuminate-v2" target="_blank" rel="noopener noreferrer">Illuminate v3.0</a></div>
 </nav>
 
 <!-- Mobile menu overlay -->
@@ -492,6 +496,10 @@
 							<span class="checkmark">{showGrid ? '✓' : ''}</span>
 							<span>Show Grid</span>
 						</button>
+						<button class="mobile-menu-item" onclick={() => mobileToggle(onToggleShowCeilingLayout)}>
+							<span class="checkmark">{showCeilingLayout ? '✓' : ''}</span>
+							<span>Show Ceiling Layout</span>
+						</button>
 						<button class="mobile-menu-item" onclick={() => mobileToggle(onToggleShowPhotometricWebs)}>
 							<span class="checkmark">{showPhotometricWebs ? '✓' : ''}</span>
 							<span>Show Photometric Webs</span>
@@ -541,6 +549,7 @@
 						<button class="mobile-menu-item" onclick={() => mobileAction(onShowExploreData)}>Pathogen Efficacy</button>
 						<button class="mobile-menu-item" onclick={() => mobileAction(onShowAudit)}>Design Audit</button>
 						<button class="mobile-menu-item" onclick={() => mobileAction(onShowSpectrumViewer)}>Spectrum Viewer</button>
+						<button class="mobile-menu-item" onclick={() => mobileAction(() => window.open('/ceiling', '_blank'))}>Ceiling Designer</button>
 						<button class="mobile-menu-item" onclick={() => mobileAction(onShowExport)}>Export</button>
 					</div>
 				{/if}
@@ -733,6 +742,10 @@
 						<span class="checkmark">{showGrid ? '✓' : ''}</span>
 						<span>Show Grid</span>
 					</div>
+					<div class="menu-item" onclick={(e) => handleToggleAction(onToggleShowCeilingLayout, e)} onkeydown={(e) => e.key === 'Enter' && handleToggleAction(onToggleShowCeilingLayout)} role="menuitem" tabindex="0">
+						<span class="checkmark">{showCeilingLayout ? '✓' : ''}</span>
+						<span>Show Ceiling Layout</span>
+					</div>
 					<div class="menu-item" onclick={(e) => handleToggleAction(onToggleShowPhotometricWebs, e)} onkeydown={(e) => e.key === 'Enter' && handleToggleAction(onToggleShowPhotometricWebs)} role="menuitem" tabindex="0">
 						<span class="checkmark">{showPhotometricWebs ? '✓' : ''}</span>
 						<span>Show Photometric Webs</span>
@@ -801,6 +814,9 @@
 					<div class="menu-item" onclick={(e) => handleMenuAction(onShowSpectrumViewer, e)} onkeydown={(e) => e.key === 'Enter' && handleMenuAction(onShowSpectrumViewer)} role="menuitem" tabindex="0">
 						<span>Spectrum Viewer</span>
 					</div>
+					<div class="menu-item" onclick={(e) => handleMenuAction(() => window.open('/ceiling', '_blank'), e)} onkeydown={(e) => e.key === 'Enter' && handleMenuAction(() => window.open('/ceiling', '_blank'))} role="menuitem" tabindex="0">
+						<span>Ceiling Designer</span>
+					</div>
 					<div class="menu-separator"></div>
 					<div class="menu-item" onclick={(e) => handleMenuAction(onShowExport, e)} onkeydown={(e) => e.key === 'Enter' && handleMenuAction(onShowExport)} role="menuitem" tabindex="0">
 						<span>Export</span>
@@ -857,6 +873,6 @@
 		{/if}
 	</div>
 
-	<div class="menu-right"><a class="app-name" href="https://www.github.com/jvbelenky/illuminate-v2" target="_blank" rel="noopener noreferrer">Illuminate v2</a></div>
+	<div class="menu-right"><a class="app-name" href="https://www.github.com/jvbelenky/illuminate-v2" target="_blank" rel="noopener noreferrer">Illuminate v3.0</a></div>
 </nav>
 {/if}

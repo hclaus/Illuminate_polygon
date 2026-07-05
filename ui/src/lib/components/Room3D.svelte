@@ -153,6 +153,102 @@
 	const xTicks = $derived(generateTicks(room.x ?? dims.x));
 	const yTicks = $derived(generateTicks(room.y ?? dims.y).filter(t => t > 0));
 	const zTicks = $derived(generateTicks(room.z).filter(t => t > 0));
+
+	import { project } from '$lib/stores/project';
+
+	const layout = $derived($project.ceilingLayout);
+	const METERS_PER_FOOT = 0.3048;
+
+	// Tile dimension in room units
+	const tileDims = $derived.by(() => {
+		if (!layout) return { w: 0, h: 0 };
+		const size = layout.tileSize;
+		const dir = layout.tileDirection;
+		let w_ft = 2;
+		let h_ft = 2;
+		if (size === '4x2') {
+			if (dir === 'x') {
+				w_ft = 4;
+				h_ft = 2;
+			} else {
+				w_ft = 2;
+				h_ft = 4;
+			}
+		}
+		const factor = units === 'meters' ? METERS_PER_FOOT : 1;
+		return {
+			w: w_ft * factor,
+			h: h_ft * factor
+		};
+	});
+
+	function isPointInPolygon(point: [number, number], vs: [number, number][]): boolean {
+		if (!vs || vs.length < 3) return false;
+		const x = Number(point[0]), y = Number(point[1]);
+		let inside = false;
+		for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+			if (!vs[i] || !vs[j]) continue;
+			const xi = Number(vs[i][0]), yi = Number(vs[i][1]);
+			const xj = Number(vs[j][0]), yj = Number(vs[j][1]);
+			const intersect = ((yi > y) !== (yj > y))
+				&& (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+			if (intersect) inside = !inside;
+		}
+		return inside;
+	}
+
+	// Generate ceiling tiles grid
+	const tiles = $derived.by(() => {
+		if (!layout || layout.tileSize === 'none' || !room) return [];
+		const tw = tileDims.w;
+		const th = tileDims.h;
+		if (tw <= 0 || th <= 0) return [];
+
+		// Determine bounding box of room polygon to generate layout grid
+		const pts = room.polygon || [[0, 0], [room.x, 0], [room.x, room.y], [0, room.y]];
+		const xs = pts.map((p) => p[0]);
+		const ys = pts.map((p) => p[1]);
+		const minX = Math.min(...xs, 0);
+		const maxX = Math.max(...xs, room.x);
+		const minY = Math.min(...ys, 0);
+		const maxY = Math.max(...ys, room.y);
+
+		const roomWidth = maxX - minX;
+		const roomHeight = maxY - minY;
+
+		const cols = Math.ceil(roomWidth / tw) + 1;
+		const rows = Math.ceil(roomHeight / th) + 1;
+
+		let startX = minX;
+		let startY = minY;
+
+		if (layout.startCorner === 'top-right' || layout.startCorner === 'bottom-right') {
+			const totalWidth = cols * tw;
+			startX = maxX - totalWidth;
+		}
+		if (layout.startCorner === 'top-left' || layout.startCorner === 'top-right') {
+			const totalHeight = rows * th;
+			startY = maxY - totalHeight;
+		}
+
+		const list = [];
+		for (let c = 0; c < cols; c++) {
+			for (let r = 0; r < rows; r++) {
+				list.push({
+					x: startX + c * tw,
+					y: startY + r * th,
+					w: tw,
+					h: th
+				});
+			}
+		}
+
+		const polyPts = room.polygon;
+		if (polyPts && polyPts.length > 0) {
+			return list.filter(tile => isPointInPolygon([tile.x + tile.w / 2, tile.y + tile.h / 2], polyPts));
+		}
+		return list;
+	});
 </script>
 
 {#if isPolygon}
@@ -339,4 +435,84 @@
 	{/each}
 
 </T.Group>
+{/if}
+
+{#if room.showCeilingLayout ?? true}
+	<!-- Ceiling grid and custom components in 3D -->
+	<!-- Tiles Grid -->
+	{#each tiles as tile}
+		<T.Line position={[tile.x, dims.z - 0.004, -tile.y]}>
+			<T.BufferGeometry>
+				<T.BufferAttribute
+					attach="attributes-position"
+					args={[new Float32Array([
+						0, 0, 0,
+						tile.w, 0, 0,
+						tile.w, 0, -tile.h,
+						0, 0, -tile.h,
+						0, 0, 0
+					]), 3]}
+				/>
+			</T.BufferGeometry>
+			<T.LineBasicMaterial color={colors.axisLine} linewidth={2} />
+		</T.Line>
+	{/each}
+
+	<!-- Custom Placed Components -->
+	{#if layout}
+		{#each layout.components as comp}
+			{#if comp.type === 'smoke_detector'}
+				<T.Mesh position={[comp.x, dims.z - 0.01, -comp.y]}>
+					<T.CylinderGeometry args={[0.15, 0.15, 0.02, 16]} />
+					<T.MeshBasicMaterial color="#ef4444" />
+				</T.Mesh>
+			{:else if comp.type === 'ventilation'}
+				<T.Mesh position={[comp.x, dims.z - 0.005, -comp.y]}>
+					<T.BoxGeometry args={[0.28, 0.01, 0.28]} />
+					<T.MeshBasicMaterial color="#cbd5e1" />
+				</T.Mesh>
+			{:else if comp.type === 'sensor'}
+				<T.Mesh position={[comp.x, dims.z - 0.04, -comp.y]} rotation.x={Math.PI}>
+					<T.ConeGeometry args={[0.06, 0.08, 8]} />
+					<T.MeshBasicMaterial color="#10b981" />
+				</T.Mesh>
+			{:else if comp.type === 'light_fixture'}
+				<T.Mesh position={[comp.x + (comp.w || 0.6) / 2, dims.z - 0.002, -(comp.y + (comp.h || 0.6) / 2)]}>
+					<T.BoxGeometry args={[comp.w || 0.6, 0.004, comp.h || 0.6]} />
+					<T.MeshBasicMaterial color="#fef08a" transparent opacity={0.7} />
+				</T.Mesh>
+			{:else if comp.type === 'pillar'}
+				<!-- Vertical Column -->
+				<T.Mesh position={[comp.x + (comp.w || 0.3) / 2, dims.z / 2, -(comp.y + (comp.h || 0.3) / 2)]}>
+					<T.BoxGeometry args={[comp.w || 0.3, dims.z, comp.h || 0.3]} />
+					<T.MeshStandardMaterial color="#94a3b8" transparent opacity={0.8} roughness={0.7} />
+				</T.Mesh>
+			{/if}
+		{/each}
+
+		<!-- Keep-Out Areas -->
+		{#each layout.keepOutAreas as ko}
+			<!-- Filled translucent plane -->
+			<T.Mesh position={[ko.x + ko.w / 2, dims.z - 0.002, -(ko.y + ko.h / 2)]}>
+				<T.BoxGeometry args={[ko.w, 0.002, ko.h]} />
+				<T.MeshBasicMaterial color="#ef4444" transparent opacity={0.1} />
+			</T.Mesh>
+			<!-- Outline -->
+			<T.Line position={[ko.x, dims.z - 0.001, -ko.y]}>
+				<T.BufferGeometry>
+					<T.BufferAttribute
+						attach="attributes-position"
+						args={[new Float32Array([
+							0, 0, 0,
+							ko.w, 0, 0,
+							ko.w, 0, -ko.h,
+							0, 0, -ko.h,
+							0, 0, 0
+						]), 3]}
+					/>
+				</T.BufferGeometry>
+				<T.LineBasicMaterial color="#ef4444" linewidth={1.5} />
+			</T.Line>
+		{/each}
+	{/if}
 {/if}

@@ -637,6 +637,17 @@
 		}
 	});
 
+	function handleMessage(event: MessageEvent) {
+		if (event.data?.type === 'ceiling_layout_update') {
+			project.updateCeilingLayout(event.data.ceilingLayout);
+		} else if (event.data?.type === 'ceiling_layout_request') {
+			event.source?.postMessage({
+				type: 'ceiling_layout_response',
+				project: $project
+			}, { targetOrigin: '*' });
+		}
+	}
+
 	// Keep editingZones in sync when a zone ID is remapped (e.g. type change)
 	const unsubZoneRemap = project.onZoneIdRemapped((oldId, newId) => {
 		if (editingZones[oldId]) {
@@ -648,9 +659,52 @@
 		window.removeEventListener('pageshow', handlePageShow);
 		window.removeEventListener('beforeunload', handleBeforeUnload);
 		window.removeEventListener('resize', checkMobile);
+		window.removeEventListener('message', handleMessage);
 		if (clickBatchTimer) clearTimeout(clickBatchTimer);
 		unsubZoneRemap();
 	});
+
+	onMount(() => {
+		window.addEventListener('message', handleMessage);
+	});
+
+	function injectCeilingLayout(rawGuv: string): string {
+		try {
+			const guvData = JSON.parse(rawGuv);
+			const layout = $project.ceilingLayout;
+			if (layout) {
+				if (guvData.data) {
+					guvData.data.ceilingLayout = layout;
+				} else {
+					guvData.ceilingLayout = layout;
+				}
+			}
+			return JSON.stringify(guvData, null, 4);
+		} catch (e) {
+			console.warn('Failed to inject ceilingLayout:', e);
+			return rawGuv;
+		}
+	}
+
+	function extractAndRestoreCeilingLayout(text: string) {
+		try {
+			const parsed = JSON.parse(text);
+			const data = parsed.data || parsed;
+			if (data.ceilingLayout) {
+				project.updateCeilingLayout(data.ceilingLayout);
+			} else {
+				project.updateCeilingLayout({
+					tileSize: '2x2',
+					startCorner: 'top-left',
+					tileDirection: 'x',
+					components: [],
+					keepOutAreas: []
+				});
+			}
+		} catch (e) {
+			console.warn('Failed to extract ceilingLayout:', e);
+		}
+	}
 
 	function startFresh() {
 		showNewProjectConfirm = true;
@@ -659,7 +713,8 @@
 	async function saveToFile() {
 		if (currentFileHandle) {
 			try {
-				const guvContent = await saveSession();
+				const rawGuv = await saveSession();
+				const guvContent = injectCeilingLayout(rawGuv);
 				const writable = await currentFileHandle.createWritable();
 				await writable.write(guvContent);
 				await writable.close();
@@ -690,7 +745,8 @@
 				const newName = handle.name.replace(/\.guv$/i, '');
 				project.setName(newName);
 
-				const guvContent = await saveSession();
+				const rawGuv = await saveSession();
+				const guvContent = injectCeilingLayout(rawGuv);
 				const writable = await handle.createWritable();
 				await writable.write(guvContent);
 				await writable.close();
@@ -716,7 +772,8 @@
 	async function saveToFileLegacy() {
 		try {
 			// Use Project.save() via the API to get proper .guv format
-			const guvContent = await saveSession();
+			const rawGuv = await saveSession();
+			const guvContent = injectCeilingLayout(rawGuv);
 			const blob = new Blob([guvContent], { type: 'application/json' });
 			const url = URL.createObjectURL(blob);
 
@@ -755,6 +812,7 @@
 					const response = await loadSession(text);
 					if (response.success) {
 						project.loadFromApiResponse(response, projectName);
+						extractAndRestoreCeilingLayout(text);
 					} else {
 						alertDialog = { title: 'Load Failed', message: 'Failed to load file: ' + response.message };
 					}
@@ -796,6 +854,7 @@
 			if (response.success) {
 				// Update the frontend store with the loaded state
 				project.loadFromApiResponse(response, projectName);
+				extractAndRestoreCeilingLayout(text);
 			} else {
 				alertDialog = { title: 'Load Failed', message: 'Failed to load file: ' + response.message };
 			}
@@ -915,11 +974,13 @@
 		showGrid={$room.showGrid ?? true}
 		showXYZMarker={$room.showXYZMarker ?? true}
 		showLampLabels={$room.showLampLabels ?? false}
-			showCalcPointLabels={$room.showCalcPointLabels ?? false}
+		showCalcPointLabels={$room.showCalcPointLabels ?? false}
+		showCeilingLayout={$room.showCeilingLayout ?? true}
 		colormap={$room.colormap}
 		precision={$room.precision}
 		onToggleShowPhotometricWebs={() => { const v = !($room.showPhotometricWebs ?? true); project.updateRoom({ showPhotometricWebs: v }); userSettings.update(s => ({ ...s, showPhotometricWebs: v })); for (const lamp of $lamps) { project.updateLamp(lamp.id, { show_photometric_web: v }); } }}
 		onToggleShowGrid={() => { const v = !($room.showGrid ?? true); project.updateRoom({ showGrid: v }); userSettings.update(s => ({ ...s, showGrid: v })); }}
+		onToggleShowCeilingLayout={() => { const v = !($room.showCeilingLayout ?? true); project.updateRoom({ showCeilingLayout: v }); userSettings.update(s => ({ ...s, showCeilingLayout: v })); }}
 		onToggleShowXYZMarker={() => { const v = !($room.showXYZMarker ?? true); project.updateRoom({ showXYZMarker: v }); userSettings.update(s => ({ ...s, showXYZMarker: v })); }}
 		onToggleShowLampLabels={() => { const v = !($room.showLampLabels ?? false); project.updateRoom({ showLampLabels: v }); userSettings.update(s => ({ ...s, showLampLabels: v })); for (const lamp of $lamps) { project.updateLamp(lamp.id, { show_label: v }); } }}
 			onToggleShowCalcPointLabels={() => { const v = !($room.showCalcPointLabels ?? false); project.updateRoom({ showCalcPointLabels: v }); userSettings.update(s => ({ ...s, showCalcPointLabels: v })); for (const z of $zones.filter(z => z.type === 'point')) { project.updateZone(z.id, { show_label: v }); } }}

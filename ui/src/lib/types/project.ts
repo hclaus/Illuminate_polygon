@@ -71,6 +71,7 @@ export interface RoomConfig {
   showLampLabels: boolean;     // Whether to show lamp name labels in 3D scene
   showCalcPointLabels: boolean; // Whether to show calcpoint name labels in 3D scene
   globalHeatmapNormalization: boolean; // If true, all heatmaps share the same color scale
+  showCeilingLayout?: boolean; // Whether to show the ceiling design overlay in 3D scene
 }
 
 export interface LampInstance {
@@ -416,6 +417,33 @@ export interface EfficacyResult {
   each_uv?: number;
 }
 
+export interface CeilingComponent {
+  id: string;
+  type: 'smoke_detector' | 'ventilation' | 'sensor' | 'light_fixture' | 'pillar';
+  x: number;
+  y: number;
+  w?: number;
+  h?: number;
+  name?: string;
+}
+
+export interface KeepOutArea {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  name?: string;
+}
+
+export interface CeilingLayout {
+  tileSize: '4x2' | '2x2' | 'none';
+  startCorner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  tileDirection: 'x' | 'y';
+  components: CeilingComponent[];
+  keepOutAreas: KeepOutArea[];
+}
+
 export interface Project {
   version: string;
   name: string;
@@ -423,6 +451,7 @@ export interface Project {
   lamps: LampInstance[];
   zones: CalcZone[];
   results?: SimulationResults;
+  ceilingLayout?: CeilingLayout;
   lastModified: string;
 }
 
@@ -475,6 +504,7 @@ export const ROOM_DEFAULTS = {
   showLampLabels: false,
   showCalcPointLabels: false,
   globalHeatmapNormalization: false,
+  showCeilingLayout: true,
 } as const;
 
 export function defaultSurfaceSpacings(
@@ -526,6 +556,7 @@ export interface RoomOverrides {
   showLampLabels?: boolean;
   showCalcPointLabels?: boolean;
   globalHeatmapNormalization?: boolean;
+  showCeilingLayout?: boolean;
 }
 
 export function defaultRoom(overrides?: RoomOverrides): RoomConfig {
@@ -564,7 +595,8 @@ export function defaultRoom(overrides?: RoomOverrides): RoomConfig {
     showXYZMarker: overrides?.showXYZMarker ?? d.showXYZMarker,
     showLampLabels: overrides?.showLampLabels ?? d.showLampLabels,
     showCalcPointLabels: overrides?.showCalcPointLabels ?? d.showCalcPointLabels,
-    globalHeatmapNormalization: overrides?.globalHeatmapNormalization ?? d.globalHeatmapNormalization
+    globalHeatmapNormalization: overrides?.globalHeatmapNormalization ?? d.globalHeatmapNormalization,
+    showCeilingLayout: overrides?.showCeilingLayout ?? d.showCeilingLayout
   };
 }
 

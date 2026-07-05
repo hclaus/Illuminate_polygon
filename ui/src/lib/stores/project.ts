@@ -1,6 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { browser } from '$app/environment';
-import { defaultProject, defaultSurfaceSpacings, defaultSurfaceNumPoints, ROOM_DEFAULTS, type Project, type LampInstance, type CalcZone, type RoomConfig, type RoomOverrides, type StateHashes, type SurfaceSpacings, type SurfaceNumPointsAll, type SurfaceReflectances } from '$lib/types/project';
+import { defaultProject, defaultSurfaceSpacings, defaultSurfaceNumPoints, ROOM_DEFAULTS, type Project, type LampInstance, type CalcZone, type RoomConfig, type RoomOverrides, type StateHashes, type SurfaceSpacings, type SurfaceNumPointsAll, type SurfaceReflectances, type CeilingLayout } from '$lib/types/project';
 import { userSettings } from '$lib/stores/settings';
 import type { UserSettings } from '$lib/stores/settings';
 import { fileStore } from '$lib/stores/fileStore';
@@ -1017,6 +1017,7 @@ function settingsToRoomOverrides(s: UserSettings): RoomOverrides {
     showLampLabels: s.showLampLabels,
     showCalcPointLabels: s.showCalcPointLabels,
     globalHeatmapNormalization: s.globalHeatmapNormalization,
+    showCeilingLayout: s.showCeilingLayout,
   };
 }
 
@@ -1506,6 +1507,7 @@ function createProjectStore() {
         showLampLabels: d.showLampLabels,
         showCalcPointLabels: d.showCalcPointLabels,
         globalHeatmapNormalization: d.globalHeatmapNormalization,
+        showCeilingLayout: (response.room as any).showCeilingLayout ?? d.showCeilingLayout,
       };
 
       // Convert loaded lamps to LampInstance[]
@@ -2067,6 +2069,32 @@ function createProjectStore() {
       updateWithTimestamp((p) => ({ ...p, name }));
     },
 
+    // Ceiling Layout management
+    updateCeilingLayout(layout: Partial<CeilingLayout>) {
+      updateWithTimestamp((p) => {
+        const defaultLayout: CeilingLayout = {
+          tileSize: '4x2',
+          startCorner: 'top-left',
+          tileDirection: 'y',
+          components: [],
+          keepOutAreas: []
+        };
+        const current = p.ceilingLayout ?? defaultLayout;
+        return {
+          ...p,
+          ceilingLayout: {
+            ...current,
+            ...layout
+          }
+        };
+      });
+    },
+
+    loadProject(p: Project) {
+      update(() => p);
+      scheduleAutosave();
+    },
+
     // Lamp info cache (prefetched on file upload)
     getLampInfoCache,
     clearLampInfoCache,
@@ -2121,6 +2149,12 @@ export const zones = {
 export const results = {
   subscribe: (fn: (value: Project['results']) => void) => {
     return project.subscribe((p) => fn(p.results));
+  }
+};
+
+export const ceilingLayout = {
+  subscribe: (fn: (value: CeilingLayout | undefined) => void) => {
+    return project.subscribe((p) => fn(p.ceilingLayout));
   }
 };
 
