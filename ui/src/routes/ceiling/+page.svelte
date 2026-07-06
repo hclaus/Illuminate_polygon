@@ -5,6 +5,7 @@
 	import { theme } from '$lib/stores/theme';
 	import { unitAbbrev } from '$lib/utils/unitConversion';
 	import type { CeilingLayout, CeilingComponent, KeepOutArea, Project } from '$lib/types/project';
+	import { getTileDimsMeters, generateTileGrid } from '$lib/utils/ceilingLayout';
 
 	// Page State
 	let selectedTool = $state<'select' | 'smoke_detector' | 'ventilation' | 'sensor' | 'light_fixture' | 'pillar' | 'keep_out'>('select');
@@ -19,9 +20,6 @@
 
 	// Active units abbreviation
 	const uAbbrev = $derived(unitAbbrev($userSettings.units));
-
-	// Conversion factors
-	const METERS_PER_FOOT = 0.3048;
 
 	// Viewport & Scale State
 	let scale = $state(40); // pixels per room unit
@@ -125,18 +123,32 @@
 		return (offsetY - relativeY) / scale;
 	}
 
+	// Guards against echoing this window's own (possibly stale, sessionStorage-copied)
+	// layout back to the opener before the canonical state has been received from it —
+	// without this, that initial echo can race the opener's response and clobber
+	// whatever the opener currently has (e.g. dropping components added moments earlier
+	// in another already-open designer window).
+	let receivedInitialSync = $state(false);
+
 	function handleMessage(event: MessageEvent) {
 		if (event.data?.type === 'ceiling_layout_response') {
 			project.loadProject(event.data.project);
+			receivedInitialSync = true;
 		}
 	}
 
 	onMount(() => {
 		window.addEventListener('message', handleMessage);
 
-		// Request initial state from parent window
+		let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
 		if (window.opener) {
+			// Request initial state from parent window
 			window.opener.postMessage({ type: 'ceiling_layout_request' }, '*');
+			// Safety fallback: if the opener never responds, don't block syncing forever.
+			fallbackTimer = setTimeout(() => { receivedInitialSync = true; }, 2000);
+		} else {
+			// Opened directly (no opener to sync with) — nothing to wait for.
+			receivedInitialSync = true;
 		}
 
 		if (!$project.ceilingLayout) {
@@ -149,9 +161,10 @@
 			});
 		}
 
-		// Watch layout changes and push to opener
+		// Watch layout changes and push to opener, but only once we're caught up
+		// with the opener's canonical state (see receivedInitialSync above).
 		const unsubscribe = project.subscribe((p) => {
-			if (window.opener && p.ceilingLayout) {
+			if (window.opener && receivedInitialSync && p.ceilingLayout) {
 				window.opener.postMessage({
 					type: 'ceiling_layout_update',
 					ceilingLayout: p.ceilingLayout
@@ -162,6 +175,7 @@
 		return () => {
 			window.removeEventListener('message', handleMessage);
 			unsubscribe();
+			if (fallbackTimer) clearTimeout(fallbackTimer);
 		};
 	});
 
@@ -215,75 +229,11 @@
 	}
 
 	// Tile dimension in room units
-	const tileDims = $derived.by(() => {
-		const size = layout.tileSize;
-		const dir = layout.tileDirection;
-		let w_ft = 2;
-		let h_ft = 2;
-		if (size === '4x2') {
-			if (dir === 'x') {
-				w_ft = 4;
-				h_ft = 2;
-			} else {
-				w_ft = 2;
-				h_ft = 4;
-			}
-		}
-		const factor = $userSettings.units === 'meters' ? METERS_PER_FOOT : 1;
-		return {
-			w: w_ft * factor,
-			h: h_ft * factor
-		};
-	});
+	const tileDims = $derived.by(() => getTileDimsMeters(layout, $userSettings.units));
 
-	// Generate ceiling tiles grid
-	const tiles = $derived.by(() => {
-		const tw = tileDims.w;
-		const th = tileDims.h;
-		if (tw <= 0 || th <= 0) return [];
-
-		// Determine bounding box of room polygon to generate layout grid
-		const xs = polygonPoints.map((p: [number, number]) => p[0]);
-		const ys = polygonPoints.map((p: [number, number]) => p[1]);
-		const minX = Math.min(...xs, 0);
-		const maxX = Math.max(...xs, rx_max);
-		const minY = Math.min(...ys, 0);
-		const maxY = Math.max(...ys, ry_max);
-
-		const roomWidth = maxX - minX;
-		const roomHeight = maxY - minY;
-
-		const cols = Math.ceil(roomWidth / tw) + 1;
-		const rows = Math.ceil(roomHeight / th) + 1;
-
-		// Calculate offsets depending on the selected corner
-		let startX = minX;
-		let startY = minY;
-
-		if (layout.startCorner === 'top-right' || layout.startCorner === 'bottom-right') {
-			// Offset grid so columns align exactly at the right boundary
-			const totalWidth = cols * tw;
-			startX = maxX - totalWidth;
-		}
-		if (layout.startCorner === 'top-left' || layout.startCorner === 'top-right') {
-			// Offset grid so rows align exactly at the top boundary
-			const totalHeight = rows * th;
-			startY = maxY - totalHeight;
-		}
-
-		const list = [];
-		for (let c = 0; c < cols; c++) {
-			for (let r = 0; r < rows; r++) {
-				list.push({
-					x: startX + c * tw,
-					y: startY + r * th,
-					w: tw,
-					h: th
-				});
-			}
-		}
-		return list;
-	});
+	// Generate ceiling tiles grid (full bounding-box grid — visually clipped to the
+	// room polygon via the SVG clipPath below, not filtered here)
+	const tiles = $derived.by(() => generateTileGrid(layout, tileDims, polygonPoints, rx_max, ry_max));
 
 	// Click on SVG canvas to place or draw components
 	function handleSvgClick(event: MouseEvent) {
@@ -341,7 +291,7 @@
 		const ry = toRoomY(event.clientY);
 		dragTarget = { type, id, startX: rx, startY: ry };
 
-		if (type === 'component') {
+		if (type === 'component' || type === 'component_resize') {
 			selectedComponentId = id;
 			selectedKeepOutId = null;
 		} else {
@@ -479,6 +429,22 @@
 		isDrawingKeepOut = false;
 		keepOutStart = null;
 		tempKeepOut = null;
+	}
+
+	// Immutable field updates for the inspector panel — inputs must not mutate
+	// `comp`/`ko` in place via bind:value, since layout.components/keepOutAreas
+	// come from a store-derived value and Svelte won't detect a same-reference
+	// object mutation as a change (the each-block below simply won't re-render).
+	function updateComponentField(id: string, patch: Partial<CeilingComponent>) {
+		project.updateCeilingLayout({
+			components: layout.components.map(c => c.id === id ? { ...c, ...patch } : c)
+		});
+	}
+
+	function updateKeepOutField(id: string, patch: Partial<KeepOutArea>) {
+		project.updateCeilingLayout({
+			keepOutAreas: layout.keepOutAreas.map(ko => ko.id === id ? { ...ko, ...patch } : ko)
+		});
 	}
 
 	// Delete Selected Item
@@ -653,32 +619,32 @@
 							</div>
 							<div class="inspector-field">
 								<label for="comp-name">Name</label>
-								<input 
+								<input
 									id="comp-name"
-									type="text" 
-									bind:value={comp.name} 
-									oninput={() => project.updateCeilingLayout({ components: [...layout.components] })}
+									type="text"
+									value={comp.name}
+									oninput={(e) => updateComponentField(comp.id, { name: e.currentTarget.value })}
 								/>
 							</div>
 							<div class="inspector-row">
 								<div class="inspector-field half">
 									<label for="comp-x">X Position</label>
-									<input 
+									<input
 										id="comp-x"
-										type="number" 
-										step="0.05" 
-										bind:value={comp.x} 
-										oninput={() => project.updateCeilingLayout({ components: [...layout.components] })}
+										type="number"
+										step="0.05"
+										value={comp.x}
+										oninput={(e) => updateComponentField(comp.id, { x: e.currentTarget.valueAsNumber })}
 									/>
 								</div>
 								<div class="inspector-field half">
 									<label for="comp-y">Y Position</label>
-									<input 
+									<input
 										id="comp-y"
-										type="number" 
-										step="0.05" 
-										bind:value={comp.y} 
-										oninput={() => project.updateCeilingLayout({ components: [...layout.components] })}
+										type="number"
+										step="0.05"
+										value={comp.y}
+										oninput={(e) => updateComponentField(comp.id, { y: e.currentTarget.valueAsNumber })}
 									/>
 								</div>
 							</div>
@@ -686,22 +652,22 @@
 								<div class="inspector-row">
 									<div class="inspector-field half">
 										<label for="comp-w">Width</label>
-										<input 
+										<input
 											id="comp-w"
-											type="number" 
-											step="0.05" 
-											bind:value={comp.w} 
-											oninput={() => project.updateCeilingLayout({ components: [...layout.components] })}
+											type="number"
+											step="0.05"
+											value={comp.w}
+											oninput={(e) => updateComponentField(comp.id, { w: e.currentTarget.valueAsNumber })}
 										/>
 									</div>
 									<div class="inspector-field half">
 										<label for="comp-h">Height</label>
-										<input 
+										<input
 											id="comp-h"
-											type="number" 
-											step="0.05" 
-											bind:value={comp.h} 
-											oninput={() => project.updateCeilingLayout({ components: [...layout.components] })}
+											type="number"
+											step="0.05"
+											value={comp.h}
+											oninput={(e) => updateComponentField(comp.id, { h: e.currentTarget.valueAsNumber })}
 										/>
 									</div>
 								</div>
@@ -712,54 +678,54 @@
 						{#if ko}
 							<div class="inspector-field">
 								<label for="ko-name">Name</label>
-								<input 
+								<input
 									id="ko-name"
-									type="text" 
-									bind:value={ko.name} 
-									oninput={() => project.updateCeilingLayout({ keepOutAreas: [...layout.keepOutAreas] })}
+									type="text"
+									value={ko.name}
+									oninput={(e) => updateKeepOutField(ko.id, { name: e.currentTarget.value })}
 								/>
 							</div>
 							<div class="inspector-row">
 								<div class="inspector-field half">
 									<label for="ko-x">X Position</label>
-									<input 
+									<input
 										id="ko-x"
-										type="number" 
-										step="0.05" 
-										bind:value={ko.x} 
-										oninput={() => project.updateCeilingLayout({ keepOutAreas: [...layout.keepOutAreas] })}
+										type="number"
+										step="0.05"
+										value={ko.x}
+										oninput={(e) => updateKeepOutField(ko.id, { x: e.currentTarget.valueAsNumber })}
 									/>
 								</div>
 								<div class="inspector-field half">
 									<label for="ko-y">Y Position</label>
-									<input 
+									<input
 										id="ko-y"
-										type="number" 
-										step="0.05" 
-										bind:value={ko.y} 
-										oninput={() => project.updateCeilingLayout({ keepOutAreas: [...layout.keepOutAreas] })}
+										type="number"
+										step="0.05"
+										value={ko.y}
+										oninput={(e) => updateKeepOutField(ko.id, { y: e.currentTarget.valueAsNumber })}
 									/>
 								</div>
 							</div>
 							<div class="inspector-row">
 								<div class="inspector-field half">
 									<label for="ko-w">Width</label>
-									<input 
+									<input
 										id="ko-w"
-										type="number" 
-										step="0.05" 
-										bind:value={ko.w} 
-										oninput={() => project.updateCeilingLayout({ keepOutAreas: [...layout.keepOutAreas] })}
+										type="number"
+										step="0.05"
+										value={ko.w}
+										oninput={(e) => updateKeepOutField(ko.id, { w: e.currentTarget.valueAsNumber })}
 									/>
 								</div>
 								<div class="inspector-field half">
 									<label for="ko-h">Height</label>
-									<input 
+									<input
 										id="ko-h"
-										type="number" 
-										step="0.05" 
-										bind:value={ko.h} 
-										oninput={() => project.updateCeilingLayout({ keepOutAreas: [...layout.keepOutAreas] })}
+										type="number"
+										step="0.05"
+										value={ko.h}
+										oninput={(e) => updateKeepOutField(ko.id, { h: e.currentTarget.valueAsNumber })}
 									/>
 								</div>
 							</div>

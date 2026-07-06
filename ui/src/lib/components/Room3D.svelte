@@ -6,6 +6,7 @@
 	import { theme } from '$lib/stores/theme';
 	import { userSettings } from '$lib/stores/settings';
 	import type { RoomConfig } from '$lib/types/project';
+	import { getTileDimsMeters, generateTileGrid, clipTileToRoom } from '$lib/utils/ceilingLayout';
 
 	interface Props {
 		dims: { x: number; y: number; z: number };
@@ -157,97 +158,31 @@
 	import { project } from '$lib/stores/project';
 
 	const layout = $derived($project.ceilingLayout);
-	const METERS_PER_FOOT = 0.3048;
 
 	// Tile dimension in room units
 	const tileDims = $derived.by(() => {
 		if (!layout) return { w: 0, h: 0 };
-		const size = layout.tileSize;
-		const dir = layout.tileDirection;
-		let w_ft = 2;
-		let h_ft = 2;
-		if (size === '4x2') {
-			if (dir === 'x') {
-				w_ft = 4;
-				h_ft = 2;
-			} else {
-				w_ft = 2;
-				h_ft = 4;
-			}
-		}
-		const factor = units === 'meters' ? METERS_PER_FOOT : 1;
-		return {
-			w: w_ft * factor,
-			h: h_ft * factor
-		};
+		return getTileDimsMeters(layout, units);
 	});
 
-	function isPointInPolygon(point: [number, number], vs: [number, number][]): boolean {
-		if (!vs || vs.length < 3) return false;
-		const x = Number(point[0]), y = Number(point[1]);
-		let inside = false;
-		for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-			if (!vs[i] || !vs[j]) continue;
-			const xi = Number(vs[i][0]), yi = Number(vs[i][1]);
-			const xj = Number(vs[j][0]), yj = Number(vs[j][1]);
-			const intersect = ((yi > y) !== (yj > y))
-				&& (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-			if (intersect) inside = !inside;
-		}
-		return inside;
-	}
-
-	// Generate ceiling tiles grid
-	const tiles = $derived.by(() => {
+	// Full bounding-box tile grid (unclipped)
+	const rawTiles = $derived.by(() => {
 		if (!layout || layout.tileSize === 'none' || !room) return [];
-		const tw = tileDims.w;
-		const th = tileDims.h;
-		if (tw <= 0 || th <= 0) return [];
-
-		// Determine bounding box of room polygon to generate layout grid
 		const pts = room.polygon || [[0, 0], [room.x, 0], [room.x, room.y], [0, room.y]];
-		const xs = pts.map((p) => p[0]);
-		const ys = pts.map((p) => p[1]);
-		const minX = Math.min(...xs, 0);
-		const maxX = Math.max(...xs, room.x);
-		const minY = Math.min(...ys, 0);
-		const maxY = Math.max(...ys, room.y);
+		return generateTileGrid(layout, tileDims, pts, room.x, room.y);
+	});
 
-		const roomWidth = maxX - minX;
-		const roomHeight = maxY - minY;
-
-		const cols = Math.ceil(roomWidth / tw) + 1;
-		const rows = Math.ceil(roomHeight / th) + 1;
-
-		let startX = minX;
-		let startY = minY;
-
-		if (layout.startCorner === 'top-right' || layout.startCorner === 'bottom-right') {
-			const totalWidth = cols * tw;
-			startX = maxX - totalWidth;
-		}
-		if (layout.startCorner === 'top-left' || layout.startCorner === 'top-right') {
-			const totalHeight = rows * th;
-			startY = maxY - totalHeight;
-		}
-
-		const list = [];
-		for (let c = 0; c < cols; c++) {
-			for (let r = 0; r < rows; r++) {
-				list.push({
-					x: startX + c * tw,
-					y: startY + r * th,
-					w: tw,
-					h: th
-				});
-			}
-		}
-
-		const polyPts = room.polygon;
-		if (polyPts && polyPts.length > 0) {
-			return list.filter(tile => isPointInPolygon([tile.x + tile.w / 2, tile.y + tile.h / 2], polyPts));
-		}
-		return list;
+	// Tiles clipped to the (possibly concave) room polygon, each carrying only
+	// the boundary-edge sub-segments that actually lie inside the room, so a
+	// tile straddling a notch renders a properly trimmed grid line instead of
+	// being dropped or drawn in full based on its center point alone.
+	const tiles = $derived.by(() => {
+		return rawTiles
+			.map(tile => {
+				const clipped = clipTileToRoom(tile, room.polygon);
+				return clipped ? { ...tile, edges: clipped.edges } : null;
+			})
+			.filter((t): t is NonNullable<typeof t> => t !== null);
 	});
 </script>
 
@@ -439,23 +374,38 @@
 
 {#if room.showCeilingLayout ?? true}
 	<!-- Ceiling grid and custom components in 3D -->
-	<!-- Tiles Grid -->
+	<!-- Tiles Grid (rendered as thick black meshes to avoid WebGL 1px line limitations) -->
+	{@const lineThickness = units === 'meters' ? 0.02 : 0.06}
+	{@const lineDepth = units === 'meters' ? 0.01 : 0.03}
 	{#each tiles as tile}
-		<T.Line position={[tile.x, dims.z - 0.004, -tile.y]}>
-			<T.BufferGeometry>
-				<T.BufferAttribute
-					attach="attributes-position"
-					args={[new Float32Array([
-						0, 0, 0,
-						tile.w, 0, 0,
-						tile.w, 0, -tile.h,
-						0, 0, -tile.h,
-						0, 0, 0
-					]), 3]}
-				/>
-			</T.BufferGeometry>
-			<T.LineBasicMaterial color={colors.axisLine} linewidth={2} />
-		</T.Line>
+		<!-- Bottom edge (room y = tile.y), trimmed to the segment(s) actually inside the room polygon -->
+		{#each tile.edges.bottom as seg}
+			<T.Mesh position={[(seg[0] + seg[1]) / 2, dims.z - lineDepth / 2, -tile.y]}>
+				<T.BoxGeometry args={[seg[1] - seg[0], lineDepth, lineThickness]} />
+				<T.MeshBasicMaterial color="#000000" />
+			</T.Mesh>
+		{/each}
+		<!-- Top edge (room y = tile.y + tile.h) -->
+		{#each tile.edges.top as seg}
+			<T.Mesh position={[(seg[0] + seg[1]) / 2, dims.z - lineDepth / 2, -(tile.y + tile.h)]}>
+				<T.BoxGeometry args={[seg[1] - seg[0], lineDepth, lineThickness]} />
+				<T.MeshBasicMaterial color="#000000" />
+			</T.Mesh>
+		{/each}
+		<!-- Left edge (room x = tile.x) -->
+		{#each tile.edges.left as seg}
+			<T.Mesh position={[tile.x, dims.z - lineDepth / 2, -(seg[0] + seg[1]) / 2]}>
+				<T.BoxGeometry args={[lineThickness, lineDepth, seg[1] - seg[0]]} />
+				<T.MeshBasicMaterial color="#000000" />
+			</T.Mesh>
+		{/each}
+		<!-- Right edge (room x = tile.x + tile.w) -->
+		{#each tile.edges.right as seg}
+			<T.Mesh position={[tile.x + tile.w, dims.z - lineDepth / 2, -(seg[0] + seg[1]) / 2]}>
+				<T.BoxGeometry args={[lineThickness, lineDepth, seg[1] - seg[0]]} />
+				<T.MeshBasicMaterial color="#000000" />
+			</T.Mesh>
+		{/each}
 	{/each}
 
 	<!-- Custom Placed Components -->

@@ -746,6 +746,13 @@ export function defaultProject(roomOverrides?: RoomOverrides): Project {
     room: defaultRoom(roomOverrides),
     lamps: [],
     zones: [],
+    ceilingLayout: {
+      tileSize: '4x2',
+      startCorner: 'top-left',
+      tileDirection: 'y',
+      components: [],
+      keepOutAreas: []
+    },
     lastModified: new Date().toISOString()
   };
 }
