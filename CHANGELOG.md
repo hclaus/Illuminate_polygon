@@ -21,6 +21,14 @@ run `scripts/changelog.sh` to generate entries from git history.
 - Playwright e2e test suite (smoke, room, lamps, zones, calculate, save/load, mobile)
 - Version-tagged Docker deployments with rollback support (`bash deploy.sh rollback <version>`)
 - Auto-patch-bump on deploy when no release tag exists on HEAD
+- **Polygon rooms:** rooms can now be defined as an arbitrary 2D polygon footprint instead of only a rectangle, with the 3D view extruding the footprint into walls/floor/ceiling
+- **Polygon Builder:** standalone visual editor (Room > Polygon room > Details) for drawing/editing the room footprint, with zoom/pan and an editable coordinates table; syncs bidirectionally with the main app and persists across save/load
+- **Contour plots:** new "Contours" display mode for 2D calculation planes, with configurable levels, labels, colors, fill/line style, grid, equal-aspect, flip-Y, and sigma smoothing, all persisted per zone
+- Custom Matplotlib-based ZIP export for contour plots, for publication-quality figures
+- Image/data overlays on contour and heatmap plots, positionable and scalable over the floor plan
+- **Ceiling Designer:** standalone 2D layout tool (Tools > Ceiling Designer) for placing smoke detectors, vents, room sensors, light fixtures, and pillars, plus keep-out areas, with automatic 2x2/4x2 ft tile paneling and configurable start-corner alignment
+- Ceiling layout (tiles, components, keep-out areas) now renders on the extruded 3D room ceiling, matching the 2D designer, and persists in the .guv project file
+- "Save as SVG" export of the ceiling layout for external documentation
 
 ### Fixed
 - Fix infinite reactive loop in ContourPlot settings synchronization by untracking store updates in effect block
@@ -41,6 +49,16 @@ run `scripts/changelog.sh` to generate entries from git history.
 - Multiple custom zones of the same type (e.g. two CalcPlanes) now all survive session init — previously only the first was kept due to an ID collision bug
 - `ref_surface` (xy/xz/yz) no longer reset to 'xy' when standard zones are refreshed after room changes
 - Output schemas now use `tuple` for `view_direction`/`view_target` to match guv_calcs types
+- 2D heatmap and contour plots now mask/exclude coordinates outside the room's actual polygon footprint (previously showed data outside the walls for non-rectangular rooms)
+- CalcPlane3D correctly masks values outside the polygon footprint in the 3D view
+- Polygon room geometry no longer lost on project save/load
+- Reflectance calculation issues for polygon rooms resolved
+- Startup safety-zones warning and room max-dimension auto-update fixed for polygon rooms
+- Prevented default browser drag behavior from interfering with overlay/handle dragging on the room canvases
+- 3D ceiling tile grid now correctly follows non-rectangular (concave) room footprints instead of overhanging walls or dropping tiles near notches/corners
+- Editing a ceiling component's width, height, position, or name in the sidebar now updates the 2D canvas immediately (previously saved silently without repainting)
+- Newly placed or edited ceiling components could fail to appear in the main app after closing the Ceiling Designer window, due to a cross-window sync race
+- Dragging a ceiling component's resize handle no longer deselects the component mid-drag
 
 ### Changed
 - CI uses `--locked` for reproducible API dependency installs
