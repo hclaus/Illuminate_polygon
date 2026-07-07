@@ -1,8 +1,12 @@
 SHELL := /bin/bash
 
-.PHONY: frontend backend test test-ui test-api test-e2e deploy rollback versions pin unpin release
+.PHONY: setup-hooks frontend backend test test-ui test-api test-e2e deploy rollback versions pin unpin release
 
 # --- Dev ---
+
+setup-hooks:
+	cp scripts/hooks/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
 
 frontend:
 	cd ui && pnpm install && pnpm dev

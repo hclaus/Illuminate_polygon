@@ -24,7 +24,7 @@ run `scripts/changelog.sh` to generate entries from git history.
 - **Polygon rooms:** rooms can now be defined as an arbitrary 2D polygon footprint instead of only a rectangle, with the 3D view extruding the footprint into walls/floor/ceiling
 - **Polygon Builder:** standalone visual editor (Room > Polygon room > Details) for drawing/editing the room footprint, with zoom/pan and an editable coordinates table; syncs bidirectionally with the main app and persists across save/load
 - **Contour plots:** new "Contours" display mode for 2D calculation planes, with configurable levels, labels, colors, fill/line style, grid, equal-aspect, flip-Y, and sigma smoothing, all persisted per zone
-- Custom Matplotlib-based ZIP export for contour plots, for publication-quality figures
+- ZIP export "Include plots" renders each contour zone's PNG using the exact same client-side chart shown in the live app, so exported images match the on-screen plot pixel-for-pixel (falls back to a server-rendered plot if the client-rendered image isn't available)
 - Image/data overlays on contour and heatmap plots, positionable and scalable over the floor plan
 - **Ceiling Designer:** standalone 2D layout tool (Tools > Ceiling Designer) for placing smoke detectors, vents, room sensors, light fixtures, and pillars, plus keep-out areas, with automatic 2x2/4x2 ft tile paneling and configurable start-corner alignment
 - Ceiling layout (tiles, components, keep-out areas) now renders on the extruded 3D room ceiling, matching the 2D designer, and persists in the .guv project file
@@ -59,10 +59,13 @@ run `scripts/changelog.sh` to generate entries from git history.
 - Editing a ceiling component's width, height, position, or name in the sidebar now updates the 2D canvas immediately (previously saved silently without repainting)
 - Newly placed or edited ceiling components could fail to appear in the main app after closing the Ceiling Designer window, due to a cross-window sync race
 - Dragging a ceiling component's resize handle no longer deselects the component mid-drag
+- Fixed "Failed to export ZIP" crash for polygon rooms containing a rectangular Plane calc zone
+- ZIP export now correctly renders zones with "Contours" display mode as contour plots instead of plain heatmaps, with proper room-polygon masking and a labeled legend matching the live view
 
 ### Changed
 - CI uses `--locked` for reproducible API dependency installs
 - File upload tests re-enabled in CI
+- Added `scripts/sync-to-server.sh` (+ Windows `.bat` wrapper): merges the deploy branch into the current branch, runs the full backend/frontend test suites, and only pushes if everything passes
 
 ## [0.1.0] - 2026-03-24
 
