@@ -5,6 +5,7 @@
 	import { lamps, project } from '$lib/stores/project';
 	import { userSettings } from '$lib/stores/settings';
 	import { unitAbbrev } from '$lib/utils/unitConversion';
+	import { computeShouldFlipV, computePlaneBounds, computeDisplayDims, computeValueUnits } from '$lib/utils/planePlotGeometry';
 	import { getSessionZoneExport } from '$lib/api/client';
 	import AlertDialog from './AlertDialog.svelte';
 	import Modal from './Modal.svelte';
@@ -442,88 +443,18 @@
 	const colormap = $derived(room.colormap || 'plasma');
 
 	// Value units depend on whether this is a dose calculation
-	const valueUnits = $derived(zone.dose ? 'mJ/cm²' : 'µW/cm²');
+	const valueUnits = $derived(computeValueUnits(zone));
 
 	// Determine if V axis should be flipped (when v points in positive direction)
-	// Use v_positive_direction from geometry if available, otherwise compute from ref_surface/direction
-	const shouldFlipV = $derived.by(() => {
-		// Prefer the computed value from backend geometry
-		if (zone.v_positive_direction != null) {
-			return zone.v_positive_direction;
-		}
-		// Fallback: compute from ref_surface and direction (for axis-aligned planes)
-		const direction = zone.direction ?? 1;
-		if (refSurface === 'xz') {
-			// XZ: v points +Z when direction=-1, -Z when direction=1
-			return direction < 0;
-		}
-		// XY and YZ: v points positive when direction=1
-		return direction > 0;
-	});
+	const shouldFlipV = $derived(computeShouldFlipV(zone));
 
 	// Calculate plane bounds based on reference surface
 	// For each plane type, the "fixed" axis is the perpendicular one:
 	// XY plane: Z is fixed, XZ plane: Y is fixed, YZ plane: X is fixed
-	const bounds = $derived.by(() => {
-		const du = $userSettings.units;
-		const height = zone.height ?? 0;
-		switch (refSurface) {
-			case 'xz':
-				return {
-					u1: zone.x1 ?? 0,
-					u2: zone.x2 ?? room.x,
-					v1: zone.z_min ?? 0,
-					v2: zone.z_max ?? room.z,
-					fixed: height,
-					uLabel: 'X',
-					vLabel: 'Z',
-					fixedLabel: 'Y'
-				};
-			case 'yz':
-				return {
-					u1: zone.y1 ?? 0,
-					u2: zone.y2 ?? room.y,
-					v1: zone.z_min ?? 0,
-					v2: zone.z_max ?? room.z,
-					fixed: height,
-					uLabel: 'Y',
-					vLabel: 'Z',
-					fixedLabel: 'X'
-				};
-			case 'xy':
-			default:
-				return {
-					u1: zone.x1 ?? 0,
-					u2: zone.x2 ?? room.x,
-					v1: zone.y1 ?? 0,
-					v2: zone.y2 ?? room.y,
-					fixed: height,
-					uLabel: 'X',
-					vLabel: 'Y',
-					fixedLabel: 'Z'
-				};
-		}
-	});
-
-	// Aspect ratio from physical dimensions (width / height)
-	const physicalWidth = $derived(bounds.u2 - bounds.u1);
-	const physicalHeight = $derived(bounds.v2 - bounds.v1);
-	const aspectRatio = $derived(physicalWidth / physicalHeight);
+	const bounds = $derived(computePlaneBounds(zone, room));
 
 	// Calculate display dimensions to fit within max bounds while maintaining aspect ratio
-	const maxDisplayWidth = 550;
-	const maxDisplayHeight = 400;
-	const displayDims = $derived.by(() => {
-		let width = maxDisplayWidth;
-		let height = width / aspectRatio;
-
-		if (height > maxDisplayHeight) {
-			height = maxDisplayHeight;
-			width = height * aspectRatio;
-		}
-
-		return { width, height };
-	});
+	const displayDims = $derived(computeDisplayDims(bounds));
 
 	// Generate tick values for an axis
 	function generateTicks(min: number, max: number, count: number = 5): number[] {

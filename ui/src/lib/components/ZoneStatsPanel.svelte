@@ -5,6 +5,8 @@
 	import { formatValue } from '$lib/utils/formatting';
 	import { calculateHoursToTLV, doseConversionFactor, formatDoseTime, totalHours } from '$lib/utils/calculations';
 	import { getSessionReport, getSessionZoneExport, getSessionExportZip, checkLampsSession, updateSessionRoom, getEfficacyExploreData, type EfficacyExploreResponse } from '$lib/api/client';
+	import { renderContourZonePngs, blobToBase64 } from '$lib/utils/exportContourPlots';
+	import { unitAbbrev } from '$lib/utils/unitConversion';
 	import { userSettings } from '$lib/stores/settings';
 	import { parseTableResponse } from '$lib/utils/efficacy-filters';
 	import { averageKineticsBySpecies, logReductionTime, DEFAULT_TARGET_SPECIES, type SpeciesKinetics } from '$lib/utils/survival-math';
@@ -518,7 +520,18 @@
 
 		isExportingAll = true;
 		try {
-			const blob = await getSessionExportZip({ include_plots: includePlots });
+			let contourPngs: Record<string, string> | undefined;
+			if (includePlots) {
+				const pngs = await renderContourZonePngs($zones, $results?.zones, $room, unitAbbrev($userSettings.units));
+				const entries = await Promise.all(
+					Object.entries(pngs).map(async ([name, blob]) => [name, await blobToBase64(blob)] as const)
+				);
+				if (entries.length > 0) {
+					contourPngs = Object.fromEntries(entries);
+				}
+			}
+
+			const blob = await getSessionExportZip({ include_plots: includePlots, contourPngs });
 
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');

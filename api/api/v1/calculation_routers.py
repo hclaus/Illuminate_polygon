@@ -4,6 +4,7 @@ Calculation Routers - Calculate, report, export, save/load, and safety check end
 
 import io
 import base64
+import binascii
 import re
 import logging
 import asyncio
@@ -18,7 +19,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from fastapi.responses import Response
 
 from guv_calcs import WHOLE_ROOM_FLUENCE, EYE_LIMITS, SKIN_LIMITS
@@ -367,16 +368,23 @@ def get_session_report(session: InitializedSessionDep):
         _log_and_raise("Report generation failed", e)
 
 
-def _replace_contour_zone_plots(session, zip_bytes: bytes) -> bytes:
+def _replace_contour_zone_plots(session, zip_bytes: bytes, client_pngs: Optional[Dict[str, str]] = None) -> bytes:
     """Re-render PNGs for zones using the "contours" display mode.
 
     guv_calcs.Room.export_zip() always renders Plane zone plots as a plain
     heatmap (zone.plot_plane()) -- it has no concept of contour_settings /
     display_mode, since those are Illuminate-only attributes bolted onto the
     zone object, not part of guv_calcs' own data model. Post-process the zip
-    here to swap in the contour rendering for any zone configured that way,
-    matching what /zones/{zone_id}/plot already does for the single-zone
-    preview.
+    here to swap in the contour rendering for any zone configured that way.
+
+    If the browser already rendered a zone's contour PNG client-side (the
+    exact same rendering used in the live app -- see ExportModal's use of
+    renderContourZonePngs()), `client_pngs` (zone name -> base64 PNG) is used
+    directly instead of the matplotlib approximation, which visually can
+    never be pixel-identical to the interactive canvas rendering. Falls back
+    to matplotlib (via generate_contour_plot(), same as /zones/{id}/plot) for
+    any contour zone the client didn't provide -- e.g. programmatic API use
+    without a browser.
     """
     contour_zones = [
         zone for zone in session.room.calc_zones.values()
@@ -388,6 +396,7 @@ def _replace_contour_zone_plots(session, zip_bytes: bytes) -> bytes:
         return zip_bytes
 
     contour_png_names = {f"{zone.name}.png" for zone in contour_zones}
+    client_pngs = client_pngs or {}
 
     in_buffer = io.BytesIO(zip_bytes)
     out_buffer = io.BytesIO()
@@ -398,6 +407,14 @@ def _replace_contour_zone_plots(session, zip_bytes: bytes) -> bytes:
             zout.writestr(item, zin.read(item.filename))
 
         for zone in contour_zones:
+            client_png_b64 = client_pngs.get(zone.name)
+            if client_png_b64:
+                try:
+                    zout.writestr(f"{zone.name}.png", base64.b64decode(client_png_b64))
+                    continue
+                except (binascii.Error, ValueError) as e:
+                    logger.warning(f"Failed to decode client-rendered contour PNG for zone {zone.name}: {e}")
+
             fig, ax = generate_contour_plot(zone, room=session.room, theme="light", dpi=100, units=str(session.room.units))
             if fig is None:
                 continue
@@ -409,8 +426,13 @@ def _replace_contour_zone_plots(session, zip_bytes: bytes) -> bytes:
     return out_buffer.getvalue()
 
 
-@router.get("/export")
-def export_session_all(session: InitializedSessionDep, include_plots: bool = False, include_report: bool = False):
+@router.post("/export")
+def export_session_all(
+    session: InitializedSessionDep,
+    include_plots: bool = False,
+    include_report: bool = False,
+    contour_pngs: Optional[Dict[str, str]] = Body(default=None, embed=True),
+):
     """
     Export all results as a ZIP file.
 
@@ -447,7 +469,7 @@ def export_session_all(session: InitializedSessionDep, include_plots: bool = Fal
                 zip_bytes = session.room.export_zip(include_plots=include_plots, include_report=include_report)
 
                 if include_plots:
-                    zip_bytes = _replace_contour_zone_plots(session, zip_bytes)
+                    zip_bytes = _replace_contour_zone_plots(session, zip_bytes, contour_pngs)
 
         return Response(
             content=zip_bytes,

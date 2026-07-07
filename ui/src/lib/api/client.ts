@@ -280,8 +280,12 @@ async function baseRequest<T>(
     }
   }
 
-  // Add Content-Type for JSON requests with body
-  if (responseType === 'json' && fetchOptions.body) {
+  // Add Content-Type for requests with a body. Every caller that reaches
+  // baseRequest sends a JSON string body by convention (FormData uploads
+  // bypass this helper and call fetch() directly) -- this must not depend
+  // on responseType, since e.g. a blob-returning endpoint can still take a
+  // JSON request body (see getSessionExportZip).
+  if (fetchOptions.body) {
     headers['Content-Type'] = 'application/json';
   }
 
@@ -1504,8 +1508,17 @@ export async function getSessionZoneExport(zoneId: string): Promise<Blob> {
 /**
  * Export all results as a ZIP file.
  * Uses room.export_zip() from guv_calcs which includes project file and all zone CSVs.
+ *
+ * `contourPngs` (zone name -> base64 PNG, no data: prefix) lets the caller
+ * supply client-rendered contour plots -- see renderContourZonePngs() in
+ * exportContourPlots.ts -- so zones in "contours" display mode get the exact
+ * live rendering in the ZIP instead of the server's matplotlib approximation.
  */
-export async function getSessionExportZip(options?: { include_plots?: boolean; include_report?: boolean }): Promise<Blob> {
+export async function getSessionExportZip(options?: {
+  include_plots?: boolean;
+  include_report?: boolean;
+  contourPngs?: Record<string, string>;
+}): Promise<Blob> {
   const params = new URLSearchParams();
   if (options?.include_plots) {
     params.append('include_plots', 'true');
@@ -1514,7 +1527,10 @@ export async function getSessionExportZip(options?: { include_plots?: boolean; i
     params.append('include_report', 'true');
   }
   const queryString = params.toString();
-  return requestBlob(`/session/export${queryString ? `?${queryString}` : ''}`);
+  return requestBlob(`/session/export${queryString ? `?${queryString}` : ''}`, {
+    method: 'POST',
+    body: JSON.stringify({ contour_pngs: options?.contourPngs ?? null }),
+  });
 }
 
 // ============================================================

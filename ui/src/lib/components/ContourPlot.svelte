@@ -1209,15 +1209,16 @@
 	});
 
 	// --- Save PNG (export including overlays) ---
-	function savePNG() {
-		if (!canvasElement) return;
-
-		const scale = exportScale;
+	// renderExportCanvas() does the actual drawing (identical output to what's
+	// shown live); savePNG() (interactive button) and getPNGBlob() (headless,
+	// used by ExportModal to bundle this exact rendering into the ZIP export)
+	// both build on it.
+	function renderExportCanvas(scale: number): HTMLCanvasElement {
 		const exportCanvas = document.createElement('canvas');
 		exportCanvas.width = Math.round(layout.figW * scale);
 		exportCanvas.height = Math.round(layout.figH * scale);
 		const octx = exportCanvas.getContext('2d');
-		if (!octx) return;
+		if (!octx) throw new Error('Failed to get 2D context for export canvas');
 
 		octx.setTransform(scale, 0, 0, scale, 0, 0);
 
@@ -1406,7 +1407,12 @@
 
 		drawColorbar(octx);
 
-		// Save the PNG blob
+		return exportCanvas;
+	}
+
+	function savePNG() {
+		if (!canvasElement) return;
+		const exportCanvas = renderExportCanvas(exportScale);
 		exportCanvas.toBlob(blob => {
 			if (!blob) return;
 			const url = URL.createObjectURL(blob);
@@ -1419,6 +1425,33 @@
 			a.remove();
 			setTimeout(() => URL.revokeObjectURL(url), 1000);
 		}, 'image/png');
+	}
+
+	// Headless PNG export used by ExportModal to bundle this exact rendering
+	// into the ZIP file (instead of the server re-generating a matplotlib
+	// approximation). Waits for anything async that renderExportCanvas()
+	// depends on -- overlay images and, if enabled, lamp-specific TLV limits.
+	export async function getPNGBlob(scale = exportScale): Promise<Blob> {
+		if (useLampLimits) {
+			await fetchLampLimits();
+		}
+		await Promise.all(
+			overlays.map(o => o.img.complete
+				? Promise.resolve()
+				: new Promise<void>(resolve => {
+					o.img.onload = () => resolve();
+					o.img.onerror = () => resolve();
+				})
+			)
+		);
+
+		const exportCanvas = renderExportCanvas(scale);
+		return new Promise((resolve, reject) => {
+			exportCanvas.toBlob(blob => {
+				if (blob) resolve(blob);
+				else reject(new Error('Failed to render contour plot to PNG'));
+			}, 'image/png');
+		});
 	}
 
 	onMount(() => {

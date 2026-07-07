@@ -1,6 +1,9 @@
 <script lang="ts">
-	import { zones, results, project } from '$lib/stores/project';
+	import { zones, results, project, room } from '$lib/stores/project';
+	import { userSettings } from '$lib/stores/settings';
+	import { unitAbbrev } from '$lib/utils/unitConversion';
 	import { getSessionExportZip, getSessionReport, getSessionZoneExport } from '$lib/api/client';
+	import { renderContourZonePngs, blobToBase64 } from '$lib/utils/exportContourPlots';
 	import Modal from './Modal.svelte';
 
 	interface Props {
@@ -41,9 +44,21 @@
 		exportingZip = true;
 		errorMessage = null;
 		try {
+			let contourPngs: Record<string, string> | undefined;
+			if (includePlots) {
+				const pngs = await renderContourZonePngs($zones, $results?.zones, $room, unitAbbrev($userSettings.units));
+				const entries = await Promise.all(
+					Object.entries(pngs).map(async ([name, blob]) => [name, await blobToBase64(blob)] as const)
+				);
+				if (entries.length > 0) {
+					contourPngs = Object.fromEntries(entries);
+				}
+			}
+
 			const blob = await getSessionExportZip({
 				include_plots: includePlots,
 				include_report: includeReport,
+				contourPngs,
 			});
 			downloadBlob(blob, 'illuminate.zip');
 		} catch (error) {

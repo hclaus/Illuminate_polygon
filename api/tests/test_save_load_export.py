@@ -196,7 +196,7 @@ class TestZoneExport:
 class TestFullExport:
     def test_returns_zip(self, calculated_session):
         client, headers, _ = calculated_session
-        resp = client.get(f"{API}/session/export", headers=headers)
+        resp = client.post(f"{API}/session/export", headers=headers)
         assert resp.status_code == 200
         assert "application/zip" in resp.headers["content-type"]
         # Verify it's a valid zip
@@ -205,12 +205,12 @@ class TestFullExport:
 
     def test_uncalculated_returns_400(self, initialized_session):
         client, headers = initialized_session
-        resp = client.get(f"{API}/session/export", headers=headers)
+        resp = client.post(f"{API}/session/export", headers=headers)
         assert resp.status_code == 400
 
     def test_with_plots_option(self, calculated_session):
         client, headers, _ = calculated_session
-        resp = client.get(
+        resp = client.post(
             f"{API}/session/export",
             params={"include_plots": True},
             headers=headers,
@@ -385,7 +385,7 @@ class TestReportStructure:
 class TestExportEdgeCases:
     def test_export_with_report_option(self, calculated_session):
         client, headers, _ = calculated_session
-        resp = client.get(
+        resp = client.post(
             f"{API}/session/export",
             params={"include_plots": True, "include_report": True},
             headers=headers,
@@ -438,7 +438,7 @@ class TestExportContourZonePlot:
             "generate_contour_plot",
             wraps=calculation_routers.generate_contour_plot,
         ) as spy:
-            resp = client.get(
+            resp = client.post(
                 f"{API}/session/export",
                 params={"include_plots": True},
                 headers=session_headers,
@@ -489,7 +489,7 @@ class TestExportContourZonePlot:
         calc_resp = client.post(f"{API}/session/calculate", headers=session_headers)
         assert calc_resp.status_code == 200, calc_resp.text
 
-        resp = client.get(
+        resp = client.post(
             f"{API}/session/export",
             params={"include_plots": True},
             headers=session_headers,
