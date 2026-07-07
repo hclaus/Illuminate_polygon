@@ -446,6 +446,7 @@ def get_zone_plot(
                         from .session_helpers import generate_contour_plot
                         fig, ax = generate_contour_plot(
                             zone,
+                            room=session.room,
                             theme=theme,
                             dpi=dpi,
                             units=str(session.room.units)

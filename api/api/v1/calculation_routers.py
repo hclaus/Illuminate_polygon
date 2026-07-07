@@ -8,6 +8,7 @@ import re
 import logging
 import asyncio
 import time
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Optional, Dict, List
@@ -37,6 +38,7 @@ from .session_helpers import (
     _standard_to_label,
     _lamp_to_loaded,
     _zone_to_loaded,
+    generate_contour_plot,
 )
 from .session_manager import get_session_manager
 from .session_schemas import (
@@ -365,6 +367,48 @@ def get_session_report(session: InitializedSessionDep):
         _log_and_raise("Report generation failed", e)
 
 
+def _replace_contour_zone_plots(session, zip_bytes: bytes) -> bytes:
+    """Re-render PNGs for zones using the "contours" display mode.
+
+    guv_calcs.Room.export_zip() always renders Plane zone plots as a plain
+    heatmap (zone.plot_plane()) -- it has no concept of contour_settings /
+    display_mode, since those are Illuminate-only attributes bolted onto the
+    zone object, not part of guv_calcs' own data model. Post-process the zip
+    here to swap in the contour rendering for any zone configured that way,
+    matching what /zones/{zone_id}/plot already does for the single-zone
+    preview.
+    """
+    contour_zones = [
+        zone for zone in session.room.calc_zones.values()
+        if zone.calctype == "Plane"
+        and getattr(zone, "display_mode", None) == "contours"
+        and zone.values is not None
+    ]
+    if not contour_zones:
+        return zip_bytes
+
+    contour_png_names = {f"{zone.name}.png" for zone in contour_zones}
+
+    in_buffer = io.BytesIO(zip_bytes)
+    out_buffer = io.BytesIO()
+    with zipfile.ZipFile(in_buffer, "r") as zin, zipfile.ZipFile(out_buffer, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            if item.filename in contour_png_names:
+                continue
+            zout.writestr(item, zin.read(item.filename))
+
+        for zone in contour_zones:
+            fig, ax = generate_contour_plot(zone, room=session.room, theme="light", dpi=100, units=str(session.room.units))
+            if fig is None:
+                continue
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", dpi=100, bbox_inches="tight", facecolor="white", edgecolor="none")
+            plt.close(fig)
+            zout.writestr(f"{zone.name}.png", buf.getvalue())
+
+    return out_buffer.getvalue()
+
+
 @router.get("/export")
 def export_session_all(session: InitializedSessionDep, include_plots: bool = False, include_report: bool = False):
     """
@@ -401,6 +445,9 @@ def export_session_all(session: InitializedSessionDep, include_plots: bool = Fal
                     'ytick.color': 'black',
                 })
                 zip_bytes = session.room.export_zip(include_plots=include_plots, include_report=include_report)
+
+                if include_plots:
+                    zip_bytes = _replace_contour_zone_plots(session, zip_bytes)
 
         return Response(
             content=zip_bytes,

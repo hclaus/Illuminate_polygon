@@ -648,12 +648,21 @@ def get_default_preset_name(zone):
         return 'Eye limits irradiance'
 
 
-def generate_contour_plot(zone, theme="light", dpi=100, units="meters"):
+def generate_contour_plot(zone, room=None, theme="light", dpi=100, units="meters"):
     """
     Generate a contour plot for a Plane zone using Matplotlib.
     Applies floorColor, levels, colors, filled, grid, contourLabels, equalAspect, and overlays.
+
+    If `room` is given and is a polygon room, the plotted contours are clipped
+    to the room's actual footprint -- a zone's own geometry may be a plain
+    rectangle even when it sits inside a non-rectangular room (e.g. a
+    zone spanning the full bounding box of an L-shaped room), so this can't
+    be inferred from the zone's own geometry alone. Matches the clipping the
+    frontend's own canvas-based contour renderer already applies.
     """
     import matplotlib.pyplot as plt
+    from matplotlib.path import Path as MplPath
+    from matplotlib.patches import PathPatch, Patch
     import numpy as np
     from PIL import Image as PILImage
 
@@ -762,12 +771,33 @@ def generate_contour_plot(zone, theme="light", dpi=100, units="meters"):
     
     colors_str = get_field(settings, 'colors', '')
     colors = [s.strip() for s in colors_str.split(',') if s.strip()]
-    
+
+    labels_str = get_field(settings, 'labels', '')
+    labels = [s.strip() for s in labels_str.split(',') if s.strip()]
+
     floor_color = get_field(settings, 'floorColor', '#00A24A')
     filled = get_field(settings, 'filled', True)
     grid = get_field(settings, 'grid', True)
     contour_labels = get_field(settings, 'contourLabels', True)
     equal_aspect = get_field(settings, 'equalAspect', True)
+
+    # Clip path matching the room's actual (possibly non-rectangular) footprint.
+    # Only applies to floor/ceiling-plane zones (ref_surface "xy"), matching the
+    # frontend's traceRoomPolygon() clip -- walls aren't clipped this way.
+    room_clip_patch = None
+    ref_surface = getattr(zone.geometry, 'ref_surface', None) or 'xy'
+    if room is not None and getattr(room, 'polygon', None) is not None and ref_surface == 'xy':
+        verts = list(room.polygon.vertices)
+        verts.append(verts[0])
+        codes = (
+            [MplPath.MOVETO]
+            + [MplPath.LINETO] * (len(verts) - 2)
+            + [MplPath.CLOSEPOLY]
+        )
+        room_clip_patch = PathPatch(
+            MplPath(verts, codes), transform=ax.transData, facecolor='none', edgecolor='none'
+        )
+        ax.add_patch(room_clip_patch)
 
     if filled:
         max_val = np.max(plot_values) if plot_values.size > 0 else 0
@@ -781,6 +811,8 @@ def generate_contour_plot(zone, theme="light", dpi=100, units="meters"):
             cnt_colors = cnt_colors[:n_intervals]
             
         cf = ax.contourf(X_grid, Y_grid, plot_values, levels=cnt_levels, colors=cnt_colors)
+        if room_clip_patch is not None:
+            cf.set_clip_path(room_clip_patch)
     else:
         bg_col = '#1a1a2e' if theme == 'dark' else '#ffffff'
         ax.set_facecolor(bg_col)
@@ -791,6 +823,8 @@ def generate_contour_plot(zone, theme="light", dpi=100, units="meters"):
         stroke_color = (float(parts[0])/255, float(parts[1])/255, float(parts[2])/255, float(parts[3]))
         
     cs = ax.contour(X_grid, Y_grid, plot_values, levels=levels, colors=[stroke_color], linewidths=1.0)
+    if room_clip_patch is not None:
+        cs.set_clip_path(room_clip_patch)
 
     if contour_labels and len(levels) > 0:
         lbl_color = '#dddddd' if theme == 'dark' else '#222222'
@@ -865,10 +899,32 @@ def generate_contour_plot(zone, theme="light", dpi=100, units="meters"):
         title += " (Irradiance)"
     title += f" ({zone.height} {units})"
     ax.set_title(title)
-    
+
     if equal_aspect:
         ax.set_aspect('equal')
-        
+
+    # Legend mapping each level's color to its (named) label, matching the
+    # frontend's colorbar-with-labels -- this was previously missing entirely,
+    # leaving only the inline numeric contour-line labels (contour_labels).
+    if levels:
+        legend_handles = [
+            Patch(
+                facecolor=colors[i] if i < len(colors) else '#cccccc',
+                edgecolor='none',
+                label=labels[i] if i < len(labels) else f"≥ {levels[i]:g}",
+            )
+            for i in range(len(levels) - 1, -1, -1)
+        ]
+        ax.legend(
+            handles=legend_handles,
+            loc='center left',
+            bbox_to_anchor=(1.02, 0.5),
+            frameon=False,
+            fontsize=9,
+            handlelength=1.2,
+            handleheight=1.2,
+        )
+
     return fig, ax
 
 

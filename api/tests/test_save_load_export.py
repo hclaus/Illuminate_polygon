@@ -397,6 +397,110 @@ class TestExportEdgeCases:
 
 
 # ============================================================
+# Regression: ZIP export used a plain heatmap for zones configured with
+# display_mode="contours" instead of the contour rendering (reported by
+# Holger). guv_calcs.Room.export_zip() always renders zone.plot_plane()
+# (a heatmap) since it has no concept of display_mode/contour_settings --
+# those are Illuminate-only attributes. The export endpoint must
+# post-process the zip to swap in generate_contour_plot() for those zones.
+# ============================================================
+
+class TestExportContourZonePlot:
+    def test_contour_zone_uses_contour_renderer(self, client, session_headers):
+        from unittest.mock import patch
+        import api.v1.calculation_routers as calculation_routers
+
+        resp = client.post(
+            f"{API}/session/init",
+            json={
+                "room": ROOM,
+                "lamps": [LAMP],
+                "zones": [
+                    {
+                        "type": "plane",
+                        "height": 1.0,
+                        "num_x": 5,
+                        "num_y": 5,
+                        "display_mode": "contours",
+                        "contour_settings": {"levels": "0.5, 1.0"},
+                    }
+                ],
+            },
+            headers=session_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        calc_resp = client.post(f"{API}/session/calculate", headers=session_headers)
+        assert calc_resp.status_code == 200, calc_resp.text
+
+        with patch.object(
+            calculation_routers,
+            "generate_contour_plot",
+            wraps=calculation_routers.generate_contour_plot,
+        ) as spy:
+            resp = client.get(
+                f"{API}/session/export",
+                params={"include_plots": True},
+                headers=session_headers,
+            )
+            assert resp.status_code == 200, resp.text
+            assert spy.called, "generate_contour_plot was not used for a display_mode='contours' zone"
+
+        zf = zipfile.ZipFile(io.BytesIO(resp.content))
+        png_files = [n for n in zf.namelist() if n.endswith(".png")]
+        assert len(png_files) >= 1
+
+    def test_contour_zone_on_polygon_room_with_rectangular_zone(self, client, session_headers):
+        """A Plane zone can have its own rectangular geometry (e.g. spanning
+        the room's full bounding box) even inside a non-rectangular polygon
+        room -- generate_contour_plot must clip to the room's actual shape
+        in that case rather than assuming the zone's own is_rectangular flag
+        tells the whole story (reported by Holger: exported contour PNG
+        showed data extending outside the room's real footprint).
+        """
+        l_shaped_room = {
+            "x": 2.5, "y": 4.0, "z": 2.7,
+            "polygon": [(1.5, 0), (1.5, 1.5), (2.5, 1.5), (2.5, 4), (0, 4), (0, 0)],
+            "units": "meters",
+        }
+        resp = client.post(
+            f"{API}/session/init",
+            json={
+                "room": l_shaped_room,
+                "lamps": [LAMP],
+                "zones": [
+                    {
+                        "type": "plane",
+                        "height": 1.0,
+                        "x1": 0, "x2": 2.5, "y1": 0, "y2": 4.0,
+                        "num_x": 10, "num_y": 10,
+                        "display_mode": "contours",
+                        "contour_settings": {
+                            "levels": "0.5, 1.0",
+                            "labels": "Low, High",
+                        },
+                    }
+                ],
+            },
+            headers=session_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        calc_resp = client.post(f"{API}/session/calculate", headers=session_headers)
+        assert calc_resp.status_code == 200, calc_resp.text
+
+        resp = client.get(
+            f"{API}/session/export",
+            params={"include_plots": True},
+            headers=session_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        zf = zipfile.ZipFile(io.BytesIO(resp.content))
+        png_files = [n for n in zf.namelist() if n.endswith(".png")]
+        assert len(png_files) >= 1
+
+
+# ============================================================
 # Regression: custom zone properties survive save/load
 # (reported by Holger — cos/sin calc_mode properties lost)
 # ============================================================
