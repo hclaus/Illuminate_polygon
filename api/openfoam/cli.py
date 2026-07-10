@@ -8,6 +8,15 @@ Usage:
     python -m openfoam.cli --guv path/to/room.guv --case path/to/case_dir --Z 2.0 \
         [--time 0] [--field-name fluenceRate] [--k-field-name kUV] \
         [--nbins 25] [--source-field T]
+
+If you run `mapFields` (e.g. to transfer a converged flow field from another
+case onto this one) run it BEFORE this script, not after - mapFields
+overwrites every field with a matching name in both cases' time directories,
+including Cx/Cy/Cz/C and any previously-written fluenceRate/kUV if the
+source case happens to have them too (e.g. from testing this script against
+it earlier). Re-running this script after mapFields is the fix if that
+happens - it's cheap and fully regenerates fluenceRate/kUV/cellZones/
+fvOptions from the true (post-mapFields) cell centers.
 """
 import argparse
 from guv_calcs import Project
