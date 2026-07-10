@@ -69,3 +69,110 @@ def splice_fv_options_into_control_dict(case_dir, indent="        "):
     n_open = new_content.count("{")
     n_close = new_content.count("}")
     return cd_path, n_open, n_close
+
+
+def set_function_object_enabled(case_dir, function_name, enabled):
+    """Set (or insert) an `enabled` entry at the top of a functions{}
+    sub-dict in controlDict - e.g. to disable scalarTransport1 while running
+    simpleFoam. Every solver reading this controlDict executes every
+    function object listed in it, including scalarTransport1's UV-decay
+    fvOptions sink terms - solving that against a wildly unconverged early
+    flow field (simpleFoam's first iterations after a mapFields warm start)
+    causes a floating-point blowup. Re-enable before running pimpleFoam.
+    """
+    cd_path = f"{case_dir}/system/controlDict"
+    with open(cd_path) as f:
+        content = f.read()
+
+    m = re.search(rf'\n(\s*){re.escape(function_name)}\s*\n(\s*)\{{', content)
+    if not m:
+        raise RuntimeError(f"Could not find '{function_name}' block inside controlDict")
+    body_indent = m.group(2) + "    "
+    open_brace_pos = content.index("{", m.end() - 1)
+
+    after_open = open_brace_pos + 1
+    existing = re.match(r'\n\s*enabled\s+\w+\s*;', content[after_open:after_open + 60])
+    if existing:
+        content = content[:after_open] + content[after_open + existing.end():]
+
+    value = "true" if enabled else "false"
+    new_content = (
+        content[:after_open]
+        + f"\n{body_indent}enabled         {value};"
+        + content[after_open:]
+    )
+    with open(cd_path, "w") as f:
+        f.write(new_content)
+    return cd_path
+
+
+def set_control_dict_time(case_dir, end_time=None, write_interval=None, delta_t=None):
+    """Set top-level endTime/writeInterval/deltaT in controlDict (the main
+    solver's run parameters - not a function object's own settings). Used to
+    give simpleFoam its own iteration budget separate from pimpleFoam's
+    transient duration, since they share this one controlDict but mean
+    completely different things (iterations vs. physical seconds).
+    """
+    cd_path = f"{case_dir}/system/controlDict"
+    with open(cd_path) as f:
+        content = f.read()
+    if end_time is not None:
+        content = re.sub(r'\nendTime\s+[\d.]+;', f'\nendTime          {end_time};', content, count=1)
+    if write_interval is not None:
+        content = re.sub(r'\nwriteInterval\s+[\d.]+;', f'\nwriteInterval    {write_interval};', content, count=1)
+    if delta_t is not None:
+        content = re.sub(r'\ndeltaT\s+[\d.]+;', f'\ndeltaT           {delta_t};', content, count=1)
+    with open(cd_path, "w") as f:
+        f.write(content)
+    return cd_path
+
+
+_SIMPLE_BLOCK = """
+SIMPLE
+{
+    nNonOrthogonalCorrectors 0;
+    consistent      no;
+    residualControl
+    {
+        p               1e-4;
+        U               1e-4;
+        "(k|omega)"     1e-4;
+    }
+}
+
+relaxationFactors
+{
+    fields
+    {
+        p               0.3;
+    }
+    equations
+    {
+        U               0.7;
+        "(k|omega)"     0.7;
+    }
+}
+"""
+
+
+def ensure_simple_fvsolution(case_dir):
+    """Append a SIMPLE{} + relaxationFactors{} block to fvSolution if not
+    already present, so simpleFoam has under-relaxation to run stably.
+
+    fvSolution here (like the working reference case it's copied from) was
+    only ever set up for PIMPLE (transient) - no SIMPLE block, no
+    relaxationFactors at all. Without under-relaxation, the SIMPLE algorithm
+    is well-known to be unstable, which is exactly what caused the
+    unrelaxed-momentum-solve blowup. Solver sections are name-scoped
+    (simpleFoam only reads SIMPLE{}, pimpleFoam only reads PIMPLE{}), so
+    both can coexist in the same file with no conflict - this is additive,
+    not a toggle like set_function_object_enabled.
+    """
+    fvs_path = f"{case_dir}/system/fvSolution"
+    with open(fvs_path) as f:
+        content = f.read()
+    if re.search(r'\nSIMPLE\s*\n\s*\{', content):
+        return fvs_path  # already present, nothing to do
+    with open(fvs_path, "w") as f:
+        f.write(content.rstrip("\n") + "\n" + _SIMPLE_BLOCK)
+    return fvs_path

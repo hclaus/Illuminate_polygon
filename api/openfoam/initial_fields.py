@@ -12,6 +12,25 @@ topology) - not valid to reuse directly.
 
 _WALL_PATCHES = ("xMinWall", "xMaxWall", "floor", "ceiling", "frontWall", "backWall")
 
+
+def compute_inlet_velocity(ach, room_volume, inlet_area):
+    """Inlet velocity magnitude [m/s] to achieve a target air-change rate.
+
+    ach: air changes per hour [1/hr] (e.g. 3.0)
+    room_volume: room volume [m^3]
+    inlet_area: inlet opening area [m^2]
+
+    Flow rate doesn't scale with room size for free - a fixed inlet velocity
+    gives a fixed volumetric flow rate regardless of room volume, so ACH
+    silently drifts as the room changes. This ties inlet velocity to ACH
+    directly instead. (Sanity check: the original hand-tuned case used a
+    fixed 0.278 m/s inlet on a 30 m^3 room with a 0.09 m^2 opening, which
+    this formula reproduces almost exactly - implied ACH = 3.0024.)
+    """
+    flow_rate = ach * room_volume / 3600.0  # m^3/s
+    return flow_rate / inlet_area
+
+
 _FIELD_SPECS = {
     "U": {
         "foam_class": "volVectorField",
@@ -75,17 +94,18 @@ def _patch_block(spec_entry):
     return lines
 
 
-def field_file_content(field_name, time_dir="0"):
+def _field_spec(field_name, inlet_velocity):
     spec = _FIELD_SPECS[field_name]
-    lines = [
-        "FoamFile", "{", "    version     2.0;", "    format      ascii;",
-        f"    class       {spec['foam_class']};", f'    location    "{time_dir}";',
-        f"    object      {field_name};", "}", "",
-        f"dimensions      {spec['dimensions']};", "",
-        f"internalField   {spec['internal']};", "",
-        "boundaryField", "{",
-        "    inlet", "    {",
-    ]
+    if field_name == "U":
+        vx, vy, vz = inlet_velocity
+        spec = {**spec, "inlet": ("fixedValue", f"uniform ({vx:.6g} {vy:.6g} {vz:.6g})")}
+    return spec
+
+
+def boundary_field_block(field_name, inlet_velocity=(0.278, 0, 0)):
+    """Return just the 'boundaryField { ... }' lines for a field."""
+    spec = _field_spec(field_name, inlet_velocity)
+    lines = ["boundaryField", "{", "    inlet", "    {"]
     lines += ["    " + l for l in _patch_block(spec["inlet"])]
     lines += ["    }", "    outlet", "    {"]
     lines += ["    " + l for l in _patch_block(spec["outlet"])]
@@ -98,12 +118,68 @@ def field_file_content(field_name, time_dir="0"):
     return "\n".join(lines)
 
 
-def write_initial_fields(case_dir, time_dir="0"):
-    """Write U, p, k, omega, nut, T into <case_dir>/<time_dir>/. Returns written paths."""
+def field_file_content(field_name, time_dir="0", inlet_velocity=(0.278, 0, 0)):
+    spec = _field_spec(field_name, inlet_velocity)
+    lines = [
+        "FoamFile", "{", "    version     2.0;", "    format      ascii;",
+        f"    class       {spec['foam_class']};", f'    location    "{time_dir}";',
+        f"    object      {field_name};", "}", "",
+        f"dimensions      {spec['dimensions']};", "",
+        f"internalField   {spec['internal']};", "",
+    ]
+    return "\n".join(lines) + "\n" + boundary_field_block(field_name, inlet_velocity)
+
+
+def write_initial_fields(case_dir, time_dir="0", inlet_velocity=(0.278, 0, 0)):
+    """Write U, p, k, omega, nut, T into <case_dir>/<time_dir>/. Returns written paths.
+
+    inlet_velocity: (vx, vy, vz) in m/s - see compute_inlet_velocity() to
+    derive this from a target ACH and room volume.
+    """
     paths = {}
     for field_name in _FIELD_SPECS:
         path = f"{case_dir}/{time_dir}/{field_name}"
         with open(path, "w") as f:
-            f.write(field_file_content(field_name, time_dir))
+            f.write(field_file_content(field_name, time_dir, inlet_velocity=inlet_velocity))
+        paths[field_name] = path
+    return paths
+
+
+_FULL_RESET_FIELDS = ("T",)  # scalars representing a scenario's *starting*
+# state (e.g. "room fully contaminated") rather than a flow-development
+# quantity - mapFields' internal-field value for these means nothing (it's
+# whatever the source case happened to have, not a "converged" state to
+# reuse), so these get their internalField reset too, not just boundaryField.
+
+
+def restore_boundary_conditions(case_dir, time_dir="0", inlet_velocity=(0.278, 0, 0)):
+    """Reset the boundaryField{} section of each already-written field file
+    back to our own BCs, leaving internalField untouched for flow fields
+    (U/p/k/omega/nut) - but fully resetting fields in _FULL_RESET_FIELDS
+    (T), internalField included, since mapping those from another case's
+    state doesn't make physical sense.
+
+    mapFields overwrites boundary patch values too for any patch it treats
+    as a "cutting patch" (interpolating from the source's internal field
+    rather than a same-named source patch) - which corrupts a fixedValue
+    inlet like ours (spatially-varying garbage instead of the ACH-derived
+    velocity). Call this right after mapFields to undo that damage while
+    keeping the internal-field mapping it was actually meant to provide
+    (for the fields where that mapping is meaningful).
+    """
+    paths = {}
+    for field_name in _FIELD_SPECS:
+        path = f"{case_dir}/{time_dir}/{field_name}"
+        if field_name in _FULL_RESET_FIELDS:
+            with open(path, "w") as f:
+                f.write(field_file_content(field_name, time_dir, inlet_velocity=inlet_velocity))
+            paths[field_name] = path
+            continue
+        with open(path) as f:
+            content = f.read()
+        idx = content.index("boundaryField")
+        new_content = content[:idx] + boundary_field_block(field_name, inlet_velocity)
+        with open(path, "w") as f:
+            f.write(new_content)
         paths[field_name] = path
     return paths
