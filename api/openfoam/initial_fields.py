@@ -94,17 +94,19 @@ def _patch_block(spec_entry):
     return lines
 
 
-def _field_spec(field_name, inlet_velocity):
+def _field_spec(field_name, inlet_velocity, T_initial=1):
     spec = _FIELD_SPECS[field_name]
     if field_name == "U":
         vx, vy, vz = inlet_velocity
         spec = {**spec, "inlet": ("fixedValue", f"uniform ({vx:.6g} {vy:.6g} {vz:.6g})")}
+    elif field_name == "T":
+        spec = {**spec, "internal": f"uniform {T_initial:.6g}"}
     return spec
 
 
-def boundary_field_block(field_name, inlet_velocity=(0.278, 0, 0)):
+def boundary_field_block(field_name, inlet_velocity=(0.278, 0, 0), T_initial=1):
     """Return just the 'boundaryField { ... }' lines for a field."""
-    spec = _field_spec(field_name, inlet_velocity)
+    spec = _field_spec(field_name, inlet_velocity, T_initial)
     lines = ["boundaryField", "{", "    inlet", "    {"]
     lines += ["    " + l for l in _patch_block(spec["inlet"])]
     lines += ["    }", "    outlet", "    {"]
@@ -118,8 +120,8 @@ def boundary_field_block(field_name, inlet_velocity=(0.278, 0, 0)):
     return "\n".join(lines)
 
 
-def field_file_content(field_name, time_dir="0", inlet_velocity=(0.278, 0, 0)):
-    spec = _field_spec(field_name, inlet_velocity)
+def field_file_content(field_name, time_dir="0", inlet_velocity=(0.278, 0, 0), T_initial=1):
+    spec = _field_spec(field_name, inlet_velocity, T_initial)
     lines = [
         "FoamFile", "{", "    version     2.0;", "    format      ascii;",
         f"    class       {spec['foam_class']};", f'    location    "{time_dir}";',
@@ -127,20 +129,23 @@ def field_file_content(field_name, time_dir="0", inlet_velocity=(0.278, 0, 0)):
         f"dimensions      {spec['dimensions']};", "",
         f"internalField   {spec['internal']};", "",
     ]
-    return "\n".join(lines) + "\n" + boundary_field_block(field_name, inlet_velocity)
+    return "\n".join(lines) + "\n" + boundary_field_block(field_name, inlet_velocity, T_initial)
 
 
-def write_initial_fields(case_dir, time_dir="0", inlet_velocity=(0.278, 0, 0)):
+def write_initial_fields(case_dir, time_dir="0", inlet_velocity=(0.278, 0, 0), T_initial=1):
     """Write U, p, k, omega, nut, T into <case_dir>/<time_dir>/. Returns written paths.
 
     inlet_velocity: (vx, vy, vz) in m/s - see compute_inlet_velocity() to
     derive this from a target ACH and room volume.
+    T_initial: T's starting internalField value - 1 for a one-time decay
+    scenario (room starts fully contaminated), 0 for a steady-state
+    build-up scenario (room starts clean, a continuous source fills it).
     """
     paths = {}
     for field_name in _FIELD_SPECS:
         path = f"{case_dir}/{time_dir}/{field_name}"
         with open(path, "w") as f:
-            f.write(field_file_content(field_name, time_dir, inlet_velocity=inlet_velocity))
+            f.write(field_file_content(field_name, time_dir, inlet_velocity=inlet_velocity, T_initial=T_initial))
         paths[field_name] = path
     return paths
 
@@ -152,7 +157,7 @@ _FULL_RESET_FIELDS = ("T",)  # scalars representing a scenario's *starting*
 # reuse), so these get their internalField reset too, not just boundaryField.
 
 
-def restore_boundary_conditions(case_dir, time_dir="0", inlet_velocity=(0.278, 0, 0)):
+def restore_boundary_conditions(case_dir, time_dir="0", inlet_velocity=(0.278, 0, 0), T_initial=1):
     """Reset the boundaryField{} section of each already-written field file
     back to our own BCs, leaving internalField untouched for flow fields
     (U/p/k/omega/nut) - but fully resetting fields in _FULL_RESET_FIELDS
@@ -172,7 +177,7 @@ def restore_boundary_conditions(case_dir, time_dir="0", inlet_velocity=(0.278, 0
         path = f"{case_dir}/{time_dir}/{field_name}"
         if field_name in _FULL_RESET_FIELDS:
             with open(path, "w") as f:
-                f.write(field_file_content(field_name, time_dir, inlet_velocity=inlet_velocity))
+                f.write(field_file_content(field_name, time_dir, inlet_velocity=inlet_velocity, T_initial=T_initial))
             paths[field_name] = path
             continue
         with open(path) as f:
