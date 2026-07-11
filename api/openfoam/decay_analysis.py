@@ -58,6 +58,23 @@ def compute_effective_eACH(t, T, ventilation_ach):
     return eACH_uv_effective, lambda_total_effective, intercept
 
 
+def check_plateau(T, window=5, rel_tol=0.01):
+    """Has a value curve genuinely plateaued (steady state reached), or did
+    the run just exhaust its iteration budget while still drifting?
+
+    Compares the spread of the last `window` values against their mean; if
+    that relative spread is above rel_tol, the run needs more iterations.
+    Used to verify each steady-state phase actually converged rather than
+    just assuming a fixed iteration budget was enough.
+    """
+    T = np.asarray(T, dtype=float)
+    tail = T[-window:]
+    spread = tail.max() - tail.min()
+    mean = tail.mean()
+    rel_spread = spread / mean if mean else float("inf")
+    return rel_spread <= rel_tol, rel_spread
+
+
 def write_results_summary(case_dir, out_path, ventilation_ach, well_mixed_eACH_mean,
                            vol_average_dat="postProcessing/volAverage1/0/volFieldValue.dat",
                            extra=None):

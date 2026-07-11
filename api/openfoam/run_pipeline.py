@@ -6,7 +6,6 @@ target case directory. Everything else this package's modules do piecewise
 via manual WSL shell-outs, this ties into one command.
 """
 import shutil
-import subprocess
 from pathlib import Path
 
 from guv_calcs import Project
@@ -22,31 +21,7 @@ from .splice import (
     set_control_dict_time,
     ensure_simple_fvsolution,
 )
-
-_OPENFOAM_BASHRC = "/usr/lib/openfoam/openfoam2412/etc/bashrc"
-
-
-def _wsl_path(unc_or_wsl_path):
-    """Convert a \\\\wsl.localhost\\Distro\\... Windows UNC path to a native
-    WSL /path. Passes through paths that are already native (start with /).
-    """
-    if unc_or_wsl_path.startswith("/"):
-        return unc_or_wsl_path
-    parts = unc_or_wsl_path.replace("\\", "/").split("/")
-    idx = parts.index("wsl.localhost")
-    return "/" + "/".join(parts[idx + 2:])
-
-
-def _run_wsl(cmd, cwd_wsl):
-    full_cmd = f"source {_OPENFOAM_BASHRC} 2>/dev/null; cd {cwd_wsl} && {cmd}"
-    return subprocess.run(["wsl", "-e", "bash", "-lc", full_cmd], capture_output=True, text=True)
-
-
-def _run_wsl_or_raise(cmd, cwd_wsl, step_name):
-    r = _run_wsl(cmd, cwd_wsl)
-    if r.returncode != 0:
-        raise RuntimeError(f"{step_name} failed (exit {r.returncode}):\n{r.stdout}\n{r.stderr}")
-    return r
+from .wsl_utils import wsl_path as _wsl_path, run_wsl as _run_wsl, run_wsl_or_raise as _run_wsl_or_raise
 
 
 def converge_flow_field(case_dir, n_iterations=500, log_fn=print):
