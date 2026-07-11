@@ -13,7 +13,7 @@ from guv_calcs import Project
 
 from .case_io import read_cell_centers, read_boundary_patch_names, write_scalar_field
 from .cellzones import bin_decay_rates, write_cellzones, write_fvoptions
-from .fluence import compute_fluence_at_points, compute_inactivation_rate
+from .fluence import compute_fluence_at_points, compute_inactivation_rate, compute_well_mixed_eACH
 from .initial_fields import write_initial_fields, compute_inlet_velocity, restore_boundary_conditions
 from .mesh_gen import write_mesh_dicts, write_map_fields_dict
 from .splice import (
@@ -241,6 +241,12 @@ def setup_case(guv_path, case_dir, template_case_dir=None, cell_size=0.1, Z=2.0,
     k_values = compute_inactivation_rate(values, Z)
     summary["k_range"] = (float(k_values.min()), float(k_values.max()))
     write_scalar_field(case_dir, "kUV", k_values, patch_names)
+
+    eACH_values = compute_well_mixed_eACH(k_values)
+    summary["eACH_uv_well_mixed_mean"] = float(eACH_values.mean())
+    summary["eACH_uv_well_mixed_range"] = (float(eACH_values.min()), float(eACH_values.max()))
+    log_fn(f"  eACH_UV well-mixed (volume-averaged) = {summary['eACH_uv_well_mixed_mean']:.4g} /hr "
+           f"(vs. ventilation ach={ach} /hr)")
 
     log_fn(f"Binning into {nbins} cellZones...")
     bin_idx, bin_repr = bin_decay_rates(k_values, nbins)

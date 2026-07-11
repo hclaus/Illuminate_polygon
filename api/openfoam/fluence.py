@@ -63,3 +63,18 @@ def compute_inactivation_rate(fluence_uW_cm2, Z):
     comes out in 1/s.
     """
     return Z * np.asarray(fluence_uW_cm2, dtype=float) * 1e-3
+
+
+def compute_well_mixed_eACH(k_per_s):
+    """Well-mixed eACH_UV [1/hr] = k [1/s] * 3600, i.e. Z * E_avg * 3.6.
+
+    The standard way UV disinfection performance gets communicated in the
+    GUV literature - expresses the UV-driven decay rate in the same units
+    as ventilation ACH, so the two are directly comparable/additive
+    (total effective ACH = ventilation ACH + eACH_UV). "Well-mixed" because
+    it assumes perfect instantaneous mixing (every point in the room gets
+    the same UV dose as the volume average) - an upper bound. Compare
+    against decay_analysis.compute_effective_eACH(), which fits the actual
+    CFD decay curve instead of assuming perfect mixing.
+    """
+    return np.asarray(k_per_s, dtype=float) * 3600.0

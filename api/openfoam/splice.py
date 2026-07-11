@@ -107,21 +107,27 @@ def set_function_object_enabled(case_dir, function_name, enabled):
 
 
 def set_control_dict_time(case_dir, end_time=None, write_interval=None, delta_t=None):
-    """Set top-level endTime/writeInterval/deltaT in controlDict (the main
-    solver's run parameters - not a function object's own settings). Used to
-    give simpleFoam its own iteration budget separate from pimpleFoam's
-    transient duration, since they share this one controlDict but mean
-    completely different things (iterations vs. physical seconds).
+    """Set endTime/writeInterval/deltaT in controlDict. Used to give
+    simpleFoam its own iteration budget separate from pimpleFoam's transient
+    duration, since they share this one controlDict but mean completely
+    different things (iterations vs. physical seconds).
+
+    writeInterval is replaced everywhere it appears, not just the top-level
+    occurrence - scalarTransport1 has its *own* nested writeInterval
+    (independent of the main solver's), and if left unsynced, T only gets
+    written on that separate schedule while U/p/k/omega/nut follow the main
+    one, leaving T missing from most time directories. endTime/deltaT aren't
+    duplicated per-function-object, so those stay first-occurrence-only.
     """
     cd_path = f"{case_dir}/system/controlDict"
     with open(cd_path) as f:
         content = f.read()
     if end_time is not None:
-        content = re.sub(r'\nendTime\s+[\d.]+;', f'\nendTime          {end_time};', content, count=1)
+        content = re.sub(r'(\n[ \t]*)endTime(\s+)[\d.]+;', rf'\g<1>endTime\g<2>{end_time};', content, count=1)
     if write_interval is not None:
-        content = re.sub(r'\nwriteInterval\s+[\d.]+;', f'\nwriteInterval    {write_interval};', content, count=1)
+        content = re.sub(r'(\n[ \t]*)writeInterval(\s+)[\d.]+;', rf'\g<1>writeInterval\g<2>{write_interval};', content)
     if delta_t is not None:
-        content = re.sub(r'\ndeltaT\s+[\d.]+;', f'\ndeltaT           {delta_t};', content, count=1)
+        content = re.sub(r'(\n[ \t]*)deltaT(\s+)[\d.]+;', rf'\g<1>deltaT\g<2>{delta_t};', content, count=1)
     with open(cd_path, "w") as f:
         f.write(content)
     return cd_path
