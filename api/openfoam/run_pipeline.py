@@ -12,6 +12,8 @@ from guv_calcs import Project
 
 from .case_io import read_cell_centers, read_boundary_patch_names, write_scalar_field
 from .cellzones import bin_decay_rates, write_cellzones, write_fvoptions
+from .contaminant_source import write_fvoptions_file
+from .fan import write_fan_topo_set_dict, fan_fvoptions_entry
 from .fluence import compute_fluence_at_points, compute_inactivation_rate, compute_well_mixed_eACH
 from .initial_fields import write_initial_fields, compute_inlet_velocity, restore_boundary_conditions
 from .mesh_gen import write_mesh_dicts, write_map_fields_dict
@@ -24,7 +26,7 @@ from .splice import (
 from .wsl_utils import wsl_path as _wsl_path, run_wsl as _run_wsl, run_wsl_or_raise as _run_wsl_or_raise
 
 
-def converge_flow_field(case_dir, n_iterations=500, log_fn=print):
+def converge_flow_field(case_dir, n_iterations=500, fan_entry=None, log_fn=print):
     """Run simpleFoam to actually converge the flow field on this mesh,
     starting from whatever is in 0/ (e.g. a mapFields warm start), then copy
     the result back into 0/ so it becomes pimpleFoam's starting point.
@@ -45,18 +47,27 @@ def converge_flow_field(case_dir, n_iterations=500, log_fn=print):
     before fluence/cellZones/fvOptions have been (re)generated for the
     current mesh, a stale fvOptions from a previous run on a *different*
     mesh will reference cellZones that don't exist yet, and simpleFoam fails
-    immediately. constant/fvOptions is meaningless during flow development
-    anyway (its sink terms target "T", which simpleFoam doesn't even solve),
-    so it's just removed here rather than reordering the whole pipeline.
+    immediately. constant/fvOptions is normally meaningless during flow
+    development (the UV/source sink terms target "T", which simpleFoam
+    doesn't even solve), so it's removed here rather than reordering the
+    whole pipeline - *except* fan_entry (see fan.py's meanVelocityForce
+    entry), which acts on U directly and so is relevant during flow
+    convergence too: a real fan affects the converged flow field itself,
+    not just the later scalar-transport phases.
     """
     case_dir_wsl = _wsl_path(case_dir)
 
     log_fn("Disabling scalarTransport1 for flow development...")
     set_function_object_enabled(case_dir, "scalarTransport1", False)
 
-    log_fn("Removing any stale constant/fvOptions (solvers auto-load it if present, "
-           "and it's meaningless during flow-only development)...")
-    _run_wsl("rm -f constant/fvOptions", case_dir_wsl)
+    if fan_entry is not None:
+        log_fn("Writing fan-only constant/fvOptions (kept active during flow "
+               "convergence, unlike the UV/source entries)...")
+        write_fvoptions_file(case_dir, [fan_entry])
+    else:
+        log_fn("Removing any stale constant/fvOptions (solvers auto-load it if present, "
+               "and it's meaningless during flow-only development with no fan)...")
+        _run_wsl("rm -f constant/fvOptions", case_dir_wsl)
 
     log_fn("Ensuring fvSolution has a SIMPLE{} block with under-relaxation "
            "(the reference case's fvSolution was only ever set up for PIMPLE)...")
@@ -106,6 +117,8 @@ def setup_case(guv_path, case_dir, template_case_dir=None, cell_size=0.1, Z=2.0,
                outlet_wall="xMax", outlet_center=(0.5, 0.15), outlet_size=(0.3, 0.3),
                converge_flow=True, simple_foam_iterations=500,
                pimple_end_time=120, pimple_write_interval=10, pimple_delta_t=0.5,
+               fan_speed=None, fan_center=None, fan_direction=(0, 0, -1),
+               fan_disk_radius=0.4, fan_disk_thickness=0.2, fan_height=None,
                log_fn=print):
     """Set up an OpenFOAM case end-to-end from a .guv project. Returns a dict
     summarizing the run (room dims, lamp count, fluence/k ranges, zone count).
@@ -123,6 +136,15 @@ def setup_case(guv_path, case_dir, template_case_dir=None, cell_size=0.1, Z=2.0,
     [s] - these (along with Z and ach above) are all destined to become GUI
     input fields; keeping them as plain function arguments here rather than
     hardcoded so that wiring is a small change, not a rework.
+
+    fan_speed: if given (m/s, see fan.SPEED_RANGE), adds an optional mixing
+    fan (see fan.py) - a small cylindrical cellZone near the ceiling with a
+    meanVelocityForce driving that zone's mean velocity to fan_speed in
+    fan_direction. Stays active through flow convergence *and* the
+    pimpleFoam phase (a real fan affects the whole scenario, not just part
+    of it) - unlike the UV/source entries, which only apply once scalar
+    transport starts. fan_center defaults to room center at 85% of room
+    height if not given.
     """
     case_dir_wsl = _wsl_path(case_dir)
     summary = {}
@@ -167,6 +189,17 @@ def setup_case(guv_path, case_dir, template_case_dir=None, cell_size=0.1, Z=2.0,
         raise RuntimeError(f"checkMesh did not report Mesh OK:\n{r.stdout}")
     log_fn("  Mesh OK")
 
+    fan_entry = None
+    if fan_speed is not None:
+        center = fan_center or (room.x / 2, room.y / 2, (fan_height if fan_height is not None else 0.85 * room.z))
+        p1 = (center[0], center[1], center[2] - fan_disk_thickness / 2)
+        p2 = (center[0], center[1], center[2] + fan_disk_thickness / 2)
+        log_fn(f"Carving fan cellZone at {center}, radius={fan_disk_radius}, speed={fan_speed} m/s...")
+        write_fan_topo_set_dict(case_dir, p1, p2, fan_disk_radius)
+        _run_wsl_or_raise("topoSet -dict system/fanTopoSetDict", case_dir_wsl, "topoSet (fan zone)")
+        fan_entry = fan_fvoptions_entry(fan_speed, direction=fan_direction)
+        summary["fan"] = {"center": center, "speed": fan_speed, "direction": fan_direction}
+
     room_volume = room.x * room.y * room.z
     inlet_area = inlet_size[0] * inlet_size[1]
     inflow_dir = _WALL_INFLOW_DIRECTION[inlet_wall]
@@ -198,7 +231,7 @@ def setup_case(guv_path, case_dir, template_case_dir=None, cell_size=0.1, Z=2.0,
 
     if converge_flow:
         log_fn(f"Converging flow field (simpleFoam, budget={simple_foam_iterations} iterations)...")
-        converge_flow_field(case_dir, n_iterations=simple_foam_iterations, log_fn=log_fn)
+        converge_flow_field(case_dir, n_iterations=simple_foam_iterations, fan_entry=fan_entry, log_fn=log_fn)
         log_fn("  restoring our own boundary conditions again (simpleFoam's mesh-derived "
                "boundary values aren't necessarily our fixedValue settings either)...")
         restore_boundary_conditions(case_dir, inlet_velocity=inlet_velocity)
@@ -228,6 +261,15 @@ def setup_case(guv_path, case_dir, template_case_dir=None, cell_size=0.1, Z=2.0,
     zone_names, _ = write_cellzones(case_dir, bin_idx, nbins)
     write_fvoptions(case_dir, zone_names, bin_repr, field_name=source_field)
     summary["n_zones"] = int(sum(1 for b in range(len(zone_names)) if (bin_idx == b).any() and b > 0))
+
+    if fan_entry is not None:
+        log_fn("  Re-carving fan cellZone (write_cellzones() above overwrote constant/polyMesh/cellZones "
+               "from scratch, wiping it - topoSet's own merge behavior restores it deterministically, "
+               "same cylinder selection since the mesh hasn't changed)...")
+        _run_wsl_or_raise("topoSet -dict system/fanTopoSetDict", case_dir_wsl, "topoSet (restore fan zone)")
+        log_fn("  Appending fan entry to fvOptions (stays active for the pimpleFoam phase too)...")
+        with open(f"{case_dir}/constant/fvOptions", "a") as f:
+            f.write(fan_entry)
 
     log_fn("Splicing fvOptions into controlDict...")
     _, n_open, n_close = splice_fv_options_into_control_dict(case_dir)

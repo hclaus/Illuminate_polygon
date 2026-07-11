@@ -99,10 +99,18 @@ def run_steady_state_scenario(case_dir, room_x, room_y, room_z, ach, Z, nbins=25
                                phase1_iterations=8000, phase1_write_interval=200,
                                phase2_iterations=3000, phase2_write_interval=100,
                                plateau_window=5, plateau_rel_tol=0.01,
+                               fan_entry=None,
                                patches_to_monitor=("outlet",), log_fn=print):
     """Run both phases of a continuous-source steady-state scenario against
     an already-converged case (mesh + flow + fluenceRate/kUV must already
     exist - see run_pipeline.setup_case()). Returns a summary dict.
+
+    fan_entry: pre-built fvOptions entry text (see fan.fan_fvoptions_entry())
+    if a mixing fan should stay active through both phases, same "always
+    on" treatment as the contaminant source itself. If the fan's cellZone
+    was already carved as part of setup_case()'s flow convergence (so the
+    converged flow field already reflects the fan's influence), just pass
+    the same entry text again here - no need to re-carve the zone.
     """
     case_dir_wsl = wsl_path(case_dir)
     room_volume = room_x * room_y * room_z
@@ -130,10 +138,11 @@ def run_steady_state_scenario(case_dir, room_x, room_y, room_z, ach, Z, nbins=25
     log_fn(f"  G={G:.4g}, Su={Su:.4g}")
 
     source_entry = source_fvoptions_entry(Su)
+    fan_entries = [fan_entry] if fan_entry is not None else []
 
     # --- Phase 1: source only, no UV ---
     log_fn("=== Phase 1: source only (no UV) ===")
-    write_fvoptions_file(case_dir, [source_entry])
+    write_fvoptions_file(case_dir, [source_entry] + fan_entries)
     _, n_open, n_close = splice_fv_options_into_control_dict(case_dir)
     assert n_open == n_close, f"Brace mismatch: {n_open} vs {n_close}"
     restore_boundary_conditions(case_dir, inlet_velocity=inlet_velocity, T_initial=0)
@@ -151,7 +160,7 @@ def run_steady_state_scenario(case_dir, room_x, room_y, room_z, ach, Z, nbins=25
     log_fn("=== Phase 2: source + UV ===")
     k_values = read_openfoam_scalar_field(f"{case_dir}/0/kUV")
     uv_entries = _uv_fvoptions_entries(np.array(k_values), nbins)
-    write_fvoptions_file(case_dir, [source_entry] + uv_entries)
+    write_fvoptions_file(case_dir, [source_entry] + uv_entries + fan_entries)
     _, n_open, n_close = splice_fv_options_into_control_dict(case_dir)
     assert n_open == n_close, f"Brace mismatch: {n_open} vs {n_close}"
 
