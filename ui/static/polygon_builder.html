@@ -470,23 +470,11 @@
                 <h3 class="section-title">Settings</h3>
                 <div class="control-row">
                     <span class="control-label">Grid Snapping:</span>
-                    <select id="select-snap">
-                        <option value="0.1">0.1 m</option>
-                        <option value="0.25">0.25 m</option>
-                        <option value="0.5" selected>0.5 m</option>
-                        <option value="1.0">1.0 m</option>
-                        <option value="0.0">None</option>
-                    </select>
+                    <select id="select-snap"></select>
                 </div>
                 <div class="control-row">
                     <span class="control-label">Scale (Canvas Width):</span>
-                    <select id="select-width">
-                        <option value="5">5 meters</option>
-                        <option value="10" selected>10 meters</option>
-                        <option value="15">15 meters</option>
-                        <option value="20">20 meters</option>
-                        <option value="30">30 meters</option>
-                    </select>
+                    <select id="select-width"></select>
                 </div>
             </div>
 
@@ -511,8 +499,8 @@
                         <thead>
                             <tr>
                                 <th style="width: 30px; text-align: center;">#</th>
-                                <th>X (m)</th>
-                                <th>Y (m)</th>
+                                <th id="th-x">X</th>
+                                <th id="th-y">Y</th>
                                 <th style="width: 30px; text-align: center;"></th>
                             </tr>
                         </thead>
@@ -545,19 +533,56 @@
         const applyContainer = document.getElementById('apply-container');
         const btnAddCoord = document.getElementById('btn-add-coord');
 
+        // Unit system — the incoming vertex numbers are already in this unit
+        // (whatever the main app's room is using), so we only relabel display
+        // text and pick unit-appropriate snap/scale presets; the coordinates
+        // themselves are never converted here.
+        const urlParams = new URLSearchParams(window.location.search);
+        const unitsParam = urlParams.get('units') === 'feet' ? 'feet' : 'meters';
+        const isFeet = unitsParam === 'feet';
+        const unitSuffix = isFeet ? 'ft' : 'm';
+        const areaSuffix = isFeet ? 'ft²' : 'm²';
+
+        const SNAP_OPTIONS = isFeet
+            ? [{ value: 0.5, label: '0.5 ft' }, { value: 1, label: '1 ft' }, { value: 2, label: '2 ft' }, { value: 5, label: '5 ft' }, { value: 0, label: 'None' }]
+            : [{ value: 0.1, label: '0.1 m' }, { value: 0.25, label: '0.25 m' }, { value: 0.5, label: '0.5 m' }, { value: 1.0, label: '1.0 m' }, { value: 0, label: 'None' }];
+        const DEFAULT_SNAP = isFeet ? 1 : 0.5;
+
+        const WIDTH_OPTIONS = isFeet ? [15, 30, 50, 75, 100] : [5, 10, 15, 20, 30];
+        const DEFAULT_WIDTH = isFeet ? 30 : 10;
+
+        document.getElementById('th-x').textContent = `X (${unitSuffix})`;
+        document.getElementById('th-y').textContent = `Y (${unitSuffix})`;
+        coordsBadge.textContent = `X: 0.00, Y: 0.00 ${unitSuffix}`;
+
+        for (const opt of SNAP_OPTIONS) {
+            const el = document.createElement('option');
+            el.value = opt.value;
+            el.textContent = opt.label;
+            if (opt.value === DEFAULT_SNAP) el.selected = true;
+            selectSnap.appendChild(el);
+        }
+        for (const w of WIDTH_OPTIONS) {
+            const el = document.createElement('option');
+            el.value = w;
+            el.textContent = `${w} ${unitsParam}`;
+            if (w === DEFAULT_WIDTH) el.selected = true;
+            selectWidth.appendChild(el);
+        }
+
         // State variables
-        let vertices = []; // Array of {x, y} in meters
+        let vertices = []; // Array of {x, y} in room units (see unitSuffix)
         let isClosed = false;
         let showGrid = true;
         let snapEnabled = true;
-        let snapSize = 0.5; // in meters
-        let maxRoomWidth = 10; // Bounding box width mapping in meters
+        let snapSize = DEFAULT_SNAP; // in room units
+        let maxRoomWidth = DEFAULT_WIDTH; // Bounding box width mapping in room units
         let hoveredIndex = -1;
         let draggedIndex = -1;
         let mouseMeters = { x: 0, y: 0 };
 
         // Zoom and Pan variables
-        let scale = 1; // pixels per meter
+        let scale = 1; // pixels per room unit
         let offsetX = 0; // translation in pixels
         let offsetY = 0; // translation in pixels
         let isPanning = false;
@@ -570,7 +595,6 @@
         }
 
         // Load initial polygon from URL parameters if present
-        const urlParams = new URLSearchParams(window.location.search);
         const polyParam = urlParams.get('polygon');
         if (polyParam) {
             try {
@@ -581,9 +605,8 @@
                     // Auto-detect maxRoomWidth based on vertices bounds
                     const maxX = Math.max(...vertices.map(v => v.x));
                     const maxY = Math.max(...vertices.map(v => v.y));
-                    const maxVal = Math.max(maxX, maxY, 5);
-                    const widths = [5, 10, 15, 20, 30];
-                    maxRoomWidth = widths.find(w => w >= maxVal) || 30;
+                    const maxVal = Math.max(maxX, maxY, WIDTH_OPTIONS[0]);
+                    maxRoomWidth = WIDTH_OPTIONS.find(w => w >= maxVal) || WIDTH_OPTIONS[WIDTH_OPTIONS.length - 1];
                     if (selectWidth) {
                         selectWidth.value = maxRoomWidth.toString();
                     }
@@ -782,7 +805,7 @@
                 ctx.strokeStyle = colors.tickLine;
                 ctx.stroke();
 
-                const label = x.toFixed(tickSpacing < 1.0 ? 2 : 0).replace(/\.?0+$/, '') + 'm';
+                const label = x.toFixed(tickSpacing < 1.0 ? 2 : 0).replace(/\.?0+$/, '') + unitSuffix;
                 ctx.fillText(label, tick.x, tick.y + 8);
             }
 
@@ -801,7 +824,7 @@
                 ctx.strokeStyle = colors.tickLine;
                 ctx.stroke();
 
-                const label = y.toFixed(tickSpacing < 1.0 ? 2 : 0).replace(/\.?0+$/, '') + 'm';
+                const label = y.toFixed(tickSpacing < 1.0 ? 2 : 0).replace(/\.?0+$/, '') + unitSuffix;
                 ctx.fillText(label, tick.x - 8, tick.y);
             }
         }
@@ -883,7 +906,7 @@
 
         function updateStats() {
             const area = Math.abs(calculateSignedArea());
-            statsBadge.textContent = `Vertices: ${vertices.length} | Area: ${area.toFixed(2)} m²`;
+            statsBadge.textContent = `Vertices: ${vertices.length} | Area: ${area.toFixed(2)} ${areaSuffix}`;
 
             if (isClosed) {
                 btnClose.textContent = "Open Loop";
@@ -1022,7 +1045,7 @@
                 y: snap(meters.y, snapSize)
             };
 
-            coordsBadge.textContent = `X: ${mouseMeters.x.toFixed(2)}, Y: ${mouseMeters.y.toFixed(2)}`;
+            coordsBadge.textContent = `X: ${mouseMeters.x.toFixed(2)}, Y: ${mouseMeters.y.toFixed(2)} ${unitSuffix}`;
 
             if (draggedIndex !== -1) {
                 // Dragging vertex
