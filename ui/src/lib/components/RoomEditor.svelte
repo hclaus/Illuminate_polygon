@@ -60,7 +60,7 @@
 
 	function openPolygonBuilder() {
 		const polyStr = JSON.stringify($room.polygon || []);
-		window.open(`/polygon_builder.html?polygon=${encodeURIComponent(polyStr)}`, '_blank');
+		window.open(`/polygon_builder.html?polygon=${encodeURIComponent(polyStr)}&units=${units}`, '_blank');
 	}
 
 	$effect(() => {

@@ -6,7 +6,7 @@
 	import { theme } from '$lib/stores/theme';
 	import { userSettings } from '$lib/stores/settings';
 	import type { RoomConfig } from '$lib/types/project';
-	import { getTileDimsMeters, generateTileGrid, clipTileToRoom } from '$lib/utils/ceilingLayout';
+	import { getTileDimsMeters, generateTileGrid, clipTileToRoom, type Point } from '$lib/utils/ceilingLayout';
 
 	interface Props {
 		dims: { x: number; y: number; z: number };
@@ -165,21 +165,29 @@
 		return getTileDimsMeters(layout, units);
 	});
 
+	// Room footprint as a polygon — the actual polygon for polygon rooms, or a
+	// synthesized bounding rectangle for plain rectangular rooms. Used both to
+	// generate the tile grid and to clip it back down, so a rectangular room's
+	// grid gets trimmed to its walls the same way a polygon room's does.
+	const roomFootprint = $derived.by((): Point[] => {
+		if (!room) return [];
+		return room.polygon || [[0, 0], [room.x, 0], [room.x, room.y], [0, room.y]];
+	});
+
 	// Full bounding-box tile grid (unclipped)
 	const rawTiles = $derived.by(() => {
 		if (!layout || layout.tileSize === 'none' || !room) return [];
-		const pts = room.polygon || [[0, 0], [room.x, 0], [room.x, room.y], [0, room.y]];
-		return generateTileGrid(layout, tileDims, pts, room.x, room.y);
+		return generateTileGrid(layout, tileDims, roomFootprint, room.x, room.y);
 	});
 
-	// Tiles clipped to the (possibly concave) room polygon, each carrying only
-	// the boundary-edge sub-segments that actually lie inside the room, so a
-	// tile straddling a notch renders a properly trimmed grid line instead of
-	// being dropped or drawn in full based on its center point alone.
+	// Tiles clipped to the room footprint, each carrying only the boundary-edge
+	// sub-segments that actually lie inside the room, so a tile straddling a
+	// notch (or simply overshooting a rectangular room's bounding-box grid)
+	// renders a properly trimmed grid line instead of being drawn in full.
 	const tiles = $derived.by(() => {
 		return rawTiles
 			.map(tile => {
-				const clipped = clipTileToRoom(tile, room.polygon);
+				const clipped = clipTileToRoom(tile, roomFootprint);
 				return clipped ? { ...tile, edges: clipped.edges } : null;
 			})
 			.filter((t): t is NonNullable<typeof t> => t !== null);
