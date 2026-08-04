@@ -154,11 +154,17 @@
 		return inside;
 	}
 
-	// Helper to check if a coordinate (u, v) is inside the room's polygon boundary
+	// Helper to check if a coordinate (u, v) is inside the room's footprint —
+	// the polygon boundary for polygon rooms, or the rectangular room bounds
+	// otherwise. A calc zone can be sized larger than the room, so this needs
+	// to hold even without a polygon (previously always returned true then).
 	function isInsideRoom(u: number, v: number, fixed: number): boolean {
-		if (!room.polygon || room.polygon.length === 0) return true;
 		const [rx, ry] = planeToRoomXY(u, v, fixed);
-		return isPointInPolygon(rx, ry, room.polygon);
+		if (room.polygon && room.polygon.length > 0) {
+			return isPointInPolygon(rx, ry, room.polygon);
+		}
+		const eps = 1e-6;
+		return rx >= -eps && rx <= room.x + eps && ry >= -eps && ry <= room.y + eps;
 	}
 
 	// Build geometry for heatmap surface when values exist
@@ -187,8 +193,13 @@
 		}
 		const range = maxVal - minVal || 1;
 
-		// Create vertices with colors based on values
+		// Create vertices with colors based on values, tracking which grid points
+		// fall outside the room footprint (polygon, or rectangular bounds) so the
+		// triangle pass below can skip them instead of drawing them with a
+		// misleadingly "low value" heatmap color.
+		const insideRoom: boolean[][] = [];
 		for (let i = 0; i < numU; i++) {
+			insideRoom.push([]);
 			for (let j = 0; j < numV; j++) {
 				const u = useOffset
 					? bounds.u1 + ((i + 0.5) / numU) * (bounds.u2 - bounds.u1)
@@ -198,6 +209,7 @@
 					: bounds.v1 + (j / (numV - 1)) * (bounds.v2 - bounds.v1);
 				const [wx, wy, wz] = planeToWorld(u, v, bounds.fixed);
 				positions.push(wx, wy, wz);
+				insideRoom[i][j] = isInsideRoom(u, v, bounds.fixed);
 
 				// Color based on value using the room's colormap
 				// Flip V index when v axis points in negative direction (values ordered opposite to world coords)
@@ -221,19 +233,21 @@
 				const c = (i + 1) * numV + j;
 				const d = (i + 1) * numV + (j + 1);
 
-				// Get values of the 4 corners of the quad to check if any is null (outside room)
-				const valA = values[i][flipV ? (numV - 1 - j) : j];
-				const valB = values[i][flipV ? (numV - 1 - (j + 1)) : (j + 1)];
-				const valC = values[i + 1][flipV ? (numV - 1 - j) : j];
-				const valD = values[i + 1][flipV ? (numV - 1 - (j + 1)) : (j + 1)];
-
-				const isOutside = (v: any) => v === null || v === undefined || isNaN(v);
+				// A corner is excluded if its value is missing (masked by the
+				// backend, e.g. outside a polygon room) or if the grid point
+				// itself falls outside the room footprint (e.g. a calc zone
+				// sized larger than the room) — either way it shouldn't render
+				// as if it were a real low-value reading.
+				const cornerOutside = (i2: number, j2: number) => {
+					const val = values[i2][flipV ? (numV - 1 - j2) : j2];
+					return val === null || val === undefined || isNaN(val) || !insideRoom[i2][j2];
+				};
 
 				// Only add triangles if none of their vertices are outside
-				if (!isOutside(valA) && !isOutside(valB) && !isOutside(valC)) {
+				if (!cornerOutside(i, j) && !cornerOutside(i, j + 1) && !cornerOutside(i + 1, j)) {
 					indices.push(a, b, c);
 				}
-				if (!isOutside(valB) && !isOutside(valD) && !isOutside(valC)) {
+				if (!cornerOutside(i, j + 1) && !cornerOutside(i + 1, j + 1) && !cornerOutside(i + 1, j)) {
 					indices.push(b, d, c);
 				}
 			}
