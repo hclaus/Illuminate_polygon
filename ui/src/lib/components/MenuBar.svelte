@@ -5,6 +5,7 @@
 	interface Props {
 		isMobile: boolean;
 		projectName: string;
+		appVersion?: string | null;
 		onRenameProject: (name: string) => void;
 		onNewProject: () => void;
 		onSave: () => void;
@@ -50,6 +51,7 @@
 	let {
 		isMobile,
 		projectName,
+		appVersion = null,
 		onRenameProject,
 		onNewProject,
 		onSave,
@@ -390,7 +392,7 @@
 		{/if}
 	</div>
 
-	<div class="menu-right"><a class="app-name" href="https://www.github.com/jvbelenky/illuminate-v2" target="_blank" rel="noopener noreferrer">Illuminate v3.0</a></div>
+	<div class="menu-right"><a class="app-name" href="https://www.github.com/jvbelenky/illuminate-v2" target="_blank" rel="noopener noreferrer">Illuminate{appVersion ? ` v${appVersion}` : ''}</a></div>
 </nav>
 
 <!-- Mobile menu overlay -->
@@ -873,6 +875,6 @@
 		{/if}
 	</div>
 
-	<div class="menu-right"><a class="app-name" href="https://www.github.com/jvbelenky/illuminate-v2" target="_blank" rel="noopener noreferrer">Illuminate v3.0</a></div>
+	<div class="menu-right"><a class="app-name" href="https://www.github.com/jvbelenky/illuminate-v2" target="_blank" rel="noopener noreferrer">Illuminate{appVersion ? ` v${appVersion}` : ''}</a></div>
 </nav>
 {/if}
